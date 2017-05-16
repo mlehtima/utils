@@ -1,0 +1,72 @@
+#!/bin/bash
+
+# Add to your .vimrc:
+#
+# au BufRead *.gitopenbuffer set filetype=gitopenbuffer
+# autocmd FileType gitopenbuffer map <buffer> t ^<C-w>gF
+# autocmd FileType gitopenbuffer map <buffer> j <Down> ^
+# autocmd FileType gitopenbuffer map <buffer> k ^<Backspace><Backspace>^
+# autocmd FileType gitopenbuffer map <buffer> q :q!<CR>
+
+SCRIPTPATH="$(dirname "`readlink -f $0`")"
+source "$SCRIPTPATH/common.sh" || exit 1
+
+check_config EDITOR
+need_binary git grep sed tempfile $EDITOR
+
+if [ $# -lt 1 ]; then
+    echo "fatal: no pattern given."
+    exit 128 # same as with git grep
+fi
+
+git branch > /dev/null 2>&1
+if [ $? -eq 0 ]; then
+    grepcommand="git grep -n"
+    grepcommandpost=""
+else
+    grepcommand="grep -r -n"
+    grepcommandpost="*"
+fi
+
+output="$(tempfile -p temp)"
+result="$(tempfile -p grep -s .gitopenbuffer)"
+search="$@"
+
+function finish {
+    rm -f "$output" "$result"
+}
+
+trap finish EXIT
+
+echo -e -n "Grepping...\r"
+
+$grepcommand -- "$search" $grepcommandpost | sed -e 's/\(.*:[0-9]\+\):/\1 :/' > "$output"
+
+if [ "$(wc -l "$output" | cut -d' ' -f1)" -eq 0 ]; then
+    exit 1
+fi
+
+hits=$(wc -l < "$output")
+plural=""
+if [ $hits -gt 1 ]; then
+    plural="s"
+fi
+echo -e "\n== ${hits} hit${plural} ==" >> "$result"
+
+set -f
+old_filename=""
+while IFS='' read -r line || [[ -n "$line" ]]; do
+    filename="${line%%:*}"
+    if [ "$filename" != "$old_filename" ]; then
+        echo "" >> "$result"
+        old_filename="$filename"
+    fi
+    echo "$line" >> "$result"
+done < "$output"
+
+if [ "$EDITOR" == "vim" ]; then
+    $EDITOR "+/${search//\//\\/}" "$result"
+else
+    $EDITOR "$result"
+fi
+exit $?

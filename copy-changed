@@ -1,0 +1,87 @@
+#!/usr/bin/env python
+
+import os
+import sys
+import pickle
+import hashlib
+
+if len(sys.argv) < 2:
+    print "Usage: copy-changed host:"
+    sys.exit(1)
+
+only_update_cache = False
+
+HOME = os.path.expanduser("~")
+PWD = os.getcwd()
+
+FILELOCATIONS = []
+# add all locations from here to root with RPMS directories
+lookup = ""
+while os.path.abspath(lookup) != "/":
+    FILELOCATIONS.append(os.path.abspath(os.path.join(PWD, lookup, "RPMS")))
+    lookup = os.path.join(lookup, "..")
+
+FILELOCATIONS.append(os.path.join(HOME, "rpmbuild/RPMS"))
+
+CACHEFILE = os.path.join(HOME, ".copy-changed-cache")
+IGNORE = [ "-devel-" ]
+if sys.argv[1] == "-r":
+    only_update_cache = True
+HOST = sys.argv[1]
+
+cache = {}
+changed = []
+
+if os.path.isfile(CACHEFILE):
+    cache = pickle.load(open(CACHEFILE, "rb"))
+
+def filehash(filename):
+    sha1 = hashlib.sha1()
+    f = open(filename, 'rb')
+    try:
+        sha1.update(f.read())
+    finally:
+        f.close()
+    return sha1.hexdigest()
+
+def iteratefiles(directory, cache, changed):
+    if not os.path.isdir(directory):
+        return False
+
+    for j in os.listdir(directory):
+        i = os.path.join(directory, j)
+        if os.path.isdir(i):
+            iteratefiles(i, cache, changed)
+        elif os.path.isfile(i):
+            if any(s in j for s in IGNORE):
+                continue
+
+            sha = filehash(i)
+            if i in cache:
+                if sha != cache[i]:
+                    cache[i] = sha
+                    changed.append(i)
+                    print "file changed: %s" % i
+            else:
+                cache[i] = sha
+                changed.append(i)
+                print "file new: %s" % i
+
+    return True
+
+for fl in FILELOCATIONS:
+    if iteratefiles(fl, cache, changed):
+        break # location handled, no need to look for more
+
+if len(changed) > 0:
+    save = True
+    if only_update_cache:
+        print "saving changed cache"
+    else:
+        print "copying changed file(s) to %s" % HOST
+        # fast and easy way.. you'll need keys to do passwordless copy
+        if not os.system('scp %s %s' % (' '.join(changed), HOST)) == 0:
+            save = False
+
+    if save:
+        pickle.dump(cache, open(CACHEFILE, "wb"))

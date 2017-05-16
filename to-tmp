@@ -1,0 +1,55 @@
+#!/bin/bash
+
+SCRIPTPATH="$(dirname "`readlink -f $0`")"
+source "$SCRIPTPATH/common.sh" || exit 1
+
+need_binaries pv ssh tar
+need_config
+check_config TARGET_HOST TARGET_DIR TARGET_WEB
+
+declare -a uploaded
+count=0
+
+while [ $# -gt 0 ]; do
+    fname="$1"
+    bname="$(basename "$fname")"
+
+    if [ ! -e "$fname" ]; then
+        echo "$bname SKIPPED, doesn't exist."
+        shift
+        continue
+    fi
+
+    if [ -d "$fname" ]; then
+        pushd "$fname/.." 1>/dev/null
+        tar c "$bname" | pv -N "$bname" | ssh $TARGET_HOST "tar x -C \"$TARGET_DIR\""
+        ssh $TARGET_HOST "cd \"$TARGET_DIR/$bname\" ; rm -f index.html ; for i in *; do echo \"<a href='\$i'>\$i</a><br />\" >> index.html; done"
+        popd 1>/dev/null
+    else
+        pv -N "$bname" "$fname" | ssh $TARGET_HOST "cat > \"$TARGET_DIR/$bname\""
+    fi
+
+    # Fucking magic, for reference.. pv smaller than three
+    #tar -C "$dname" -c -z "$bname" | ssh $TARGET_HOST tar -C $TARGET_DIR -x -z --checkpoint=10 --checkpoint-action=exec="bash\ -c\ set\|grep\ TAR_CHECKPOINT\|cut\ -d=\ -f2\|xargs\ echo\ -n\ '\r'\"$bname\"\ $size\ /"
+
+    if [ $? -eq 0 ]; then
+        ssh $TARGET_HOST chmod -R go+r $TARGET_DIR/"$bname" 2>/dev/null
+        uploaded[$count]="$bname"
+        ((count++))
+    fi
+
+    shift
+done
+
+if [ "$count" == "0" ]; then
+    echo "No files uploaded!"
+    exit 0
+else
+    echo ""
+    echo "Upload URL(s):"
+fi
+
+((last=${#uploaded[@]}-1))
+for i in $(seq 0 $last); do
+    echo "$TARGET_WEB/${uploaded[$i]// /%20}"
+done

@@ -1,0 +1,35 @@
+_tx()
+{
+    local cur prev opts
+    _init_completion -s || return
+
+    COMPREPLY=()
+    cur="${COMP_WORDS[COMP_CWORD]}"
+    prev="${COMP_WORDS[COMP_CWORD-1]}"
+
+    opts="--version -h --help -v --verbose -t --types --force -f"
+
+    case "${cur}" in
+        -*)
+            COMPREPLY=($(compgen -W "${opts}" -- ${cur}))
+            return 0
+            ;;
+        *)
+        ;;
+    esac
+
+    case "${prev}" in
+        -f|--force)
+            local types=$(tx --types | awk '{ if ($0 ~ /[OK]/) print $1 }')
+            COMPREPLY=( $(compgen -W "${types}" -- ${cur}) )
+            return 0
+            ;;
+        *)
+        ;;
+    esac
+
+    _filedir "$(tx --autocomplete-types)"
+
+    return 0
+}
+complete -F _tx tx

@@ -1,0 +1,14 @@
+#!/bin/bash
+
+SCRIPTPATH="$(dirname "`readlink -f $0`")"
+source "$SCRIPTPATH/common.sh" || exit 1
+
+need_binaries grep ls cut tmux hostname
+
+session="$(hostname -s)"
+
+if [ "$(tmux ls 2>/dev/null | grep ${session} | cut -d: -f1)" == "${session}" ]; then
+    tmux -u attach -t ${session}
+else
+    tmux new-session -s ${session}
+fi

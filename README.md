@@ -1,4 +1,5 @@
-utils
+Utils
 =====
 
-Collection of more or less useful scripts etc.
+Collection of small and more or less useful scripts.
+

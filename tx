@@ -1,0 +1,197 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+# vim: set noexpandtab tabstop=4:
+
+"""
+tx - unpack multiple compressed file types
+
+Public domain.
+
+Juho Hämäläinen 2008-2016  jusa@hilvi.org
+
+"""
+
+import os
+import subprocess
+import sys
+import re
+from optparse import OptionParser, SUPPRESS_HELP
+
+VERSION = 0.5
+
+try:
+    from subprocess import DEVNULL # py3k
+except ImportError:
+    DEVNULL = open(os.devnull, 'wb')
+
+class Handler:
+	def __init__(self, name, binaries, desc, action, ext):
+		self.name = name
+		self.binaries = binaries
+		self.desc = desc
+		self.action = action
+		self.ext = []
+		for e in ext:
+			self.ext.append(re.compile(e))
+
+ftypes = [
+	Handler('tar',      ['tar'],              'Tar archive.',                                     'tar -x -f "%s"',           [r'\.tar$']),
+	Handler('tar.gz',   ['tar', 'gunzip'],    'Tar archive compressed with gzip.',                'tar -x -z -f "%s"',        [r'\.tar\.gz$', r'\.tgz$']),
+	Handler('tar.bz2',  ['tar', 'bunzip2'],   'Tar archive compressed with bzip2.',               'tar -x -j -f "%s"',        [r'\.tar\.bz2$', r'\.tbz2$']),
+	Handler('tar.xz',   ['tar', 'unxz'],      'Tar archive compressed with xz.',                  'unxz -c "%s" | tar -x',    [r'\.tar\.xz$', r'\.txz$']),
+	Handler('gz',       ['gunzip'],           'File compressed with gzip.',                       'gunzip "%s"',              [r'\.gz$']),
+	Handler('bz2',      ['bunzip2'],          'File compressed with bzip2.',                      'bunzip2 "%s"',             [r'\.bz2$']),
+	Handler('xz',       ['unxz'],             'Xz archive.',                                      'unxz -k "%s"',             [r'\.xz$']),
+	Handler('zip',      ['unzip'],            'Zip archive.',                                     'unzip -q "%s"',            [r'\.zip$']),
+	Handler('rar',      ['unrar'],            'Rar archive.',                                     'unrar x "%s"',             [r'\.rar$']),
+	Handler('ace',      ['unace'],            'Ace archive.',                                     'unace x "%s"',             [r'\.ace$']),
+	Handler('arj',      ['arj'],              'Arj archive.',                                     'arj x -i "%s"',            [r'\.arj$']),
+	Handler('deb',      ['dpkg-deb'],         'Debian package.',                                  'dpkg-deb -x %s .',         [r'\.deb$']),
+	Handler('rpm',      ['rpm2cpio', 'cpio'], 'Rpm package.',                                     'rpm2cpio %s | cpio -idm --quiet',  [r'\.rpm$']),
+	Handler('7z',       ['7z'],               '7zip package.',                                    '7z x "%s"',                [r'\.7z$']),
+	Handler('exe',      ['innoextract'],      'Inno Setup package (.exe).',                       'innoextract -s "%s"',      [r'\.exe$'])
+]
+
+def vprint(v, s):
+	if v: print(s)
+
+def iteritems(d):
+	try:
+		items = d.iteritems()
+	except AttributeError:
+		items = d.items()
+	return items
+
+def files_exist(list):
+	ret = ""
+	for f in list:
+		if not os.path.exists(f) or not os.path.isfile(f):
+			ret += "%s " % f
+	return ret
+
+def check_binary(exe):
+	return subprocess.call(["which", exe], stdout=DEVNULL, stderr=subprocess.STDOUT) == 0
+
+def check_binaries(handler):
+	ret = True
+	for b in handler.binaries:
+		if not check_binary(b):
+			print("Binary not in PATH '%s'" % b)
+			ret = False
+	return ret
+
+def extract(filename, force_type=None, verbose=False):
+	handler = None
+	err = 0
+	if force_type:
+		filetype = force_type
+	else:
+		filetype = filename
+	for h in ftypes:
+		for r in h.ext:
+			# nice workaround for shortcoming of re.match() not being
+			# able to match other than starting from beginning of string..
+			if len(r.split(filetype, maxsplit=1)) == 2:
+				handler = h
+				break
+		if handler:
+			break
+	if not handler:
+		print("No handler for '%s'" % filename)
+		err = 200
+	else:
+		if not check_binaries(handler):
+			err = 201
+		else:
+			cmd = handler.action % filename
+			vprint(verbose, cmd)
+			err = os.system(cmd)
+
+	return err
+
+def print_extensions():
+	for handler in ftypes:
+		missing = []
+		for b in handler.binaries:
+			if not check_binary(b):
+				missing.append(b)
+		if len(missing) > 0:
+			ok = "[%s missing]" % ",".join(missing)
+		else:
+			ok= "[OK]"
+		print("%-*s %-*s %s" % (12, handler.name, 48, handler.desc, ok))
+
+def print_autocomplete():
+	handled = []
+	for handler in ftypes:
+		available = True
+		for b in handler.binaries:
+			if not check_binary(b):
+				available = False
+				break
+		if available:
+			for i in handler.ext:
+				handled.append(i.pattern.replace('\.', '.').replace('$', '')[1:])
+	print('|'.join(handled))
+
+def main():
+	parser = OptionParser(usage="""\
+usage: %prog [options] files...
+
+Unpack multiple compressed file types with single
+program.
+""", version="%%prog %g" % VERSION)
+
+	parser.add_option('-v', '--verbose',
+		action='store_true',
+		dest='verbose',
+		default=False,
+		help="""be verbose about operation""")
+	parser.add_option('-t', '--types',
+		action='store_true',
+		dest='list_types',
+		default=False,
+		help="""list handled filetypes""")
+	parser.add_option('-f', '--force',
+		action='store',
+		type='string',
+		dest='type',
+		help="""force archive type""")
+	parser.add_option('', '--autocomplete-types',
+		action='store_true',
+		dest='list_autocomplete_types',
+		default=False,
+		help=SUPPRESS_HELP)
+	
+	opts, args = parser.parse_args()
+	
+	if opts.list_types:
+		print_extensions()
+		sys.exit(0)
+	elif opts.list_autocomplete_types:
+		print_autocomplete()
+		sys.exit(0)
+
+	if len(args) == 0:
+		parser.print_help()
+		sys.exit(199)
+
+	missing = files_exist(args)
+	if missing:
+		print("%s not found." % missing)
+		sys.exit(200)
+
+	force = None
+	if opts.type:
+		force = ".%s" % opts.type
+
+	for i in args:
+		val = extract(i, force_type=force, verbose=opts.verbose)
+		if val != 0:
+			sys.exit(val)
+
+	sys.exit(0)
+
+if __name__ == "__main__":
+	main()
+

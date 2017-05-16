@@ -1,0 +1,29 @@
+#!/bin/bash
+
+NOTIFY_DIR="/tmp/notifications_/"
+
+if [ ! -d "$NOTIFY_DIR" ]; then
+    mkdir -p "$NOTIFY_DIR"
+fi
+
+while [ 1 ]; do
+    EVENT_FILE="$(inotifywait -q -e close_write "$NOTIFY_DIR" | gawk '{ print $3 }')"
+    if [ ! $? -eq 0 ]; then
+        echo "Quitting"
+        exit 0
+    fi
+
+    TYPE="$(head -n1 "$NOTIFY_DIR$EVENT_FILE")"
+    BODY="$(tail -n +2 "$NOTIFY_DIR$EVENT_FILE")"
+
+    if [ "$TYPE" == "SUCCESS" ]; then
+        ICON="dialog-information"
+    else
+        ICON="dialog-error"
+    fi
+
+    rm -f "$NOTIFY_DIR$EVENT_FILE"
+    if [ ! -z "$BODY" ]; then
+        notify-send -t 3000 -i $ICON "$TYPE" "$BODY"
+    fi
+done

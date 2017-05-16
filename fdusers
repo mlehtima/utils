@@ -1,0 +1,70 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+# vim: set noexpandtab tabstop=4:
+
+import os
+import sys
+import psutil
+
+# defaults
+MINFD = 100
+SORT_BY_PID = False
+
+def usage():
+	print("Usage: " + os.path.basename(sys.argv[0]) + " [-h|--help] [-p] [min open fds]")
+	print("")
+	print("  List processes and the count of open file descriptors.")
+	print("")
+	print("    -h --help     Show this help.")
+	print("    -p            Sort by pid. Default to sorting by open file descriptors.")
+	print("    0-9           Minimum number of open fds, only pids with same or higher")
+	print("                    open fds will be listed. Defaults to " + str(MINFD) + ".")
+	sys.exit(0)
+
+def sort_by_fds(a, b):
+	if a.num_fds() > b.num_fds():
+		return -1
+	elif a.num_fds() == b.num_fds():
+		return 0
+	else:
+		return 1
+
+def main():
+	global MINFD
+	global SORT_BY_PID
+
+	for arg in sys.argv[1:]:
+		try:
+			MINFD = int(arg)
+		except Exception:
+			# This is quite silly :DD
+			if arg == "-p":
+				SORT_BY_PID = True
+			elif arg == "-h" or arg == "--help":
+				usage()
+			else:
+				print("Argument for minimum open file descriptors needs to be integer.")
+				sys.exit(1)
+
+	our_p = []
+
+	for p in psutil.process_iter():
+		try:
+			num_fds = p.num_fds()
+		except psutil.AccessDenied:
+			continue
+
+		if num_fds >= MINFD:
+			our_p.append(p)
+
+	# process_iter() outputs the list as ascending pids.
+	if not SORT_BY_PID:
+		our_p.sort(sort_by_fds)
+
+	print("PID".rjust(6) + "FDs".rjust(6) + "cmd".rjust(4))
+
+	for p in our_p:
+		print("{0:6d} {1:5d} {2:s}".format(p.pid, p.num_fds(), p.exe()))
+
+if __name__ == "__main__":
+	main()

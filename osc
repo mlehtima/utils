@@ -1,0 +1,30 @@
+#!/bin/bash
+
+WRAPPER_BIN="$(readlink -f $0)"
+REAL_BIN="/usr/bin/osc"
+MER_SDK_BIN="/srv/mer/sdks/sdk/mer-sdk-chroot"
+
+if [ "$MERSDK" != "1" ]; then
+    $MER_SDK_BIN exec $WRAPPER_BIN $PWD $@
+    exit $?
+else
+    cd "$1"
+    shift
+    $REAL_BIN $@
+    res=$?
+    if [ $res -eq 0 ]; then
+        while [ $# -gt 0 ]; do
+            case $1 in
+                build)
+                    echo -n ">>> wrapper: Copying result rpms..."
+                    mkdir -p $HOME/rpmbuild/RPMS
+                    cp -r /var/tmp/build-root/home/abuild/rpmbuild/RPMS/* $HOME/rpmbuild/RPMS/
+                    echo "done."
+                    exit $res
+                    ;;
+            esac
+            shift
+        done
+    fi
+    exit $res
+fi

@@ -1,0 +1,97 @@
+#!/bin/bash
+
+SCRIPTPATH="$(dirname "`readlink -f $0`")"
+source "$SCRIPTPATH/common.sh" || exit 1
+
+need_binaries lame tempfile
+load_config
+check_config PROCESSES=8
+
+if [[ $1 == "-h" || $1 == "--help" || $# -lt 2 ]]
+then
+	lame --help
+	echo ""
+	echo "Usage: $(basename $0) \"<lame options>\" files"
+	echo -e "\n  lame options are passed as is to processes,"
+	echo -e   "  avoid verbose printing for your sanity.\n"
+	echo -e   "  Remember to pass lame options inside quotes.\n"
+	exit 0
+fi
+
+SLOT="$(tempfile -p mlame -s .lock)"
+
+LAME_OPTS="$1"
+shift
+
+function aquire_slot
+{
+	touch $SLOT.$1
+}
+
+function release_slot
+{
+	rm -f $SLOT.$1
+}
+
+function release_all
+{
+	for ((a=0; a<$PROCESSES; a++))
+	do
+		release_slot $a
+	done
+}
+
+function encode_single
+{
+	slot="$1"
+	name="$2"
+	echo "start \"$name\""
+	lame --silent $LAME_OPTS "$name" "$(basename "$name" .wav).mp3"
+	echo "ready \"$name\""
+	release_slot $slot
+}
+
+release_all
+
+echo "Starting encoding with lame command line"
+echo "  '' lame --silent $LAME_OPTS ''"
+
+while [ $# -gt 0 ]
+do
+	for ((a=0; a<$PROCESSES; a++))
+	do
+		if [[ ! -f $SLOT.$a && $# -gt 0 ]]
+		then
+			aquire_slot $a
+			encode_single $a "$1" &
+			shift
+		fi
+	done
+	sleep 1
+done
+
+while [ 1 ]
+do
+	all_done=1
+	for ((a=0; a<$PROCESSES; a++))
+	do
+		if [ -f $SLOT.$a ]
+		then
+			all_done=0
+			break
+		fi
+	done
+
+	if [ $all_done -eq 1 ]
+	then
+		break
+	else
+		sleep 1
+	fi
+done
+
+release_all
+rm -f "$SLOT"
+
+echo "All encoding done!"
+

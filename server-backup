@@ -1,0 +1,92 @@
+#!/bin/bash
+
+SCRIPTPATH="$(dirname "`readlink -f $0`")"
+source "$SCRIPTPATH/common.sh" || exit 1
+
+if [ $# -lt 1 ]; then
+    echo "Usage: $(basename $0) <configuration file>"
+    exit 1
+fi
+
+need_config_absolute "$1"
+
+function check_log {
+    if [ $# -lt 2 ]; then
+        echo "check_log internal error, abort."
+        exit 2
+    fi
+
+    logfile="$1"
+    shift
+    message="$@"
+
+    if [ ! -z "$(cat $logfile)" ]; then
+        echo "$message:"
+        cat $logfile
+    fi
+    rm -f $logfile
+}
+
+function backup_directories {
+    pushd / >/dev/null
+
+    echo "=== Directory backup ==="
+
+    current=1
+    total_count=$(ls -1d $DIRECTORIES | wc -l)
+
+    for i in $DIRECTORIES
+    do
+        filename="${i//\//_}.tar.gz.gpg"
+        target="$TARGET_DIR/$filename"
+        logfile="$(tempfile)"
+
+        echo "$i -> $SSH_SERVER:$target [$current/$total_count]..."
+        echo -e -n "\rCalculating size..."
+        pushd "/$i" >/dev/null
+        size=$(du -sb 2>/dev/null| cut -d"	" -f1)
+        popd >/dev/null
+        echo -e -n "\rCreating target directory..."
+        ssh $SSH_SERVER "mkdir -p $TARGET_DIR"
+        echo -e -n "\r"
+        tar c $i 2>$logfile | pv -s $size -F "%b %t %r %e" | pigz | gpg -e -r $GPG_RECIPIENT --compress-algo none | ssh $SSH_SERVER "cat > $target"
+        check_log $logfile "tar messages for $i"
+        ((current++))
+    done
+
+    popd >/dev/null
+}
+
+function backup_databases {
+    echo "=== MySQL backup ==="
+
+    echo -e -n "\rCreating target directory..."
+    ssh $SSH_SERVER "mkdir -p $TARGET_DIR"
+    echo -e -n "\r"
+
+    current=1
+    total_count=0
+    for i in $DATABASES; do ((total_count++)); done
+
+    for i in $DATABASES; do
+        filename="mysqldb.$i.dump.gpg"
+        target="$TARGET_DIR/$filename"
+        logfile="$(tempfile)"
+        echo -n "DB $i -> $SSH_SERVER:$target [$current/$total_count]..."
+        mysqldump --defaults-file=$MYSQL_CONFIG -u root "$i" 2>$logfile | gpg -e -r $GPG_RECIPIENT | ssh $SSH_SERVER "cat > $target"
+        echo "done."
+        check_log $logfile "mysqldump messages for $i"
+        ((current++))
+    done
+}
+
+check_config GPG_RECIPIENT SSH_SERVER SSH_DIRECTORY TARGET_DIR MYSQL_CONFIG
+if [ ! -z "$DIRECTORIES" ]; then
+    need_binaries tar pigz pv gpg ssh tempfile
+fi
+if [ ! -z "$DATABASES" ]; then
+    need_binaries mysqldump gpg ssh tempfile
+fi
+check_need_user
+backup_databases
+backup_directories

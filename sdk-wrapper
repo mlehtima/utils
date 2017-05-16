@@ -1,0 +1,15 @@
+#!/bin/bash
+
+WRAPPER_BIN="$(readlink -f $0)"
+REAL_BIN="/usr/bin/$WRAPPER_BIN"
+MER_SDK_BIN="/srv/mer/sdks/sdk/mer-sdk-chroot"
+
+if [ "$MERSDK" != "1" ]; then
+    $MER_SDK_BIN exec $WRAPPER_BIN $PWD $@
+    exit $?
+else
+    cd "$1"
+    shift
+    $REAL_BIN $@
+    exit $?
+fi

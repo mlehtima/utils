@@ -1,0 +1,103 @@
+#!/bin/bash
+
+IDENTIFIER="sdk-event-action-$USER"
+RUNNING=1
+ACTIVE=0
+CANCEL=0
+
+NOTIFY_ENABLED=1
+NOTIFY_DIR="/parentroot/tmp/notifications_"
+# only send notifications on events longer than .. seconds
+NOTIFY_TIME_S="10"
+
+do_event() {
+    if [ $CANCEL -eq 0 ]; then
+        ACTIVE=1
+    fi
+
+    for i in $(seq 0 99); do
+        if [ $ACTIVE -eq 0 ]; then
+            return
+        fi
+        Q="/parentroot/tmp/$IDENTIFIER-$i"
+        if [ -e "$Q" ]; then
+            EDIR="$(cat $Q-dir)"
+            ECMD="$(cat $Q)"
+            echo -e "[\e[32m$EDIR\e[39m] $ECMD"
+            TIME_START="$(date +%s)"
+            eval "cd $EDIR && $ECMD"
+            RET=$?
+            TIME_STOP="$(date +%s)"
+            TIME_DIFF=$(($TIME_STOP-$TIME_START))
+
+            if [[ $NOTIFY_ENABLED -eq 1 && $TIME_DIFF -gt $NOTIFY_TIME_S ]]; then
+                TYPE="undef"
+                if [ $RET -eq 0 ]; then
+                    TYPE="SUCCESS"
+                else
+                    TYPE="FAIL"
+                fi
+                mkdir -p "$NOTIFY_DIR"
+                echo -e "$TYPE\n[ $EDIR ]\n\n$ECMD\n" > "$NOTIFY_DIR/note"
+            fi
+
+            if [ $RET -eq 0 ]; then
+                echo -e "[\e[32m$EDIR\e[39m] $ECMD  \e[32mSUCCESS\e[39m"
+            else
+                echo -e "[\e[32m$EDIR\e[39m] $ECMD  \e[31mFAIL\e[39m"
+            fi
+            echo ""
+            rm -f $Q-dir
+            rm -f $Q
+            break
+        fi
+    done
+    if [ $ACTIVE -eq 0 ]; then
+        echo -e "\e[31mQueue aborted.\e[39m"
+    fi
+}
+
+restore() {
+    sleep 0.1
+    kill -s SIGCONT $1
+}
+
+cont_event() {
+    CANCEL=0
+    trap - SIGCONT
+}
+
+cancel_event() {
+    ACTIVE=0
+    CANCEL=1
+    trap cont_event SIGCONT
+    restore $$ &
+}
+
+quit_event() {
+    echo -e "\e[34mQuitting...\e[39m"
+    RUNNING=0
+}
+
+if [ ! -d /parentroot ]; then
+    echo "Are you running inside SDK?"
+    exit 1
+fi
+
+trap do_event SIGUSR1
+trap quit_event SIGUSR2
+trap cancel_event SIGINT SIGTERM
+
+echo $$ > /parentroot/tmp/$IDENTIFIER-pid
+
+while [ $RUNNING -eq 1 ]; do
+    sleep 1
+done
+
+# cleanup (will be run last)
+rm -f /parentroot/tmp/$IDENTIFIER-pid
+for i in $(seq 0 99); do
+    Q="/parentroot/tmp/$IDENTIFIER-$i"
+    rm -f "$Q"
+    rm -f "$Q-dir"
+done

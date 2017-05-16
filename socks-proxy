@@ -1,0 +1,74 @@
+#!/bin/bash
+
+ONLY_KILL="0"
+ONLY_LIST="0"
+
+SCRIPTPATH="$(dirname "`readlink -f $0`")"
+source "$SCRIPTPATH/common.sh" || exit 1
+
+need_binaries ssh gawk
+need_config
+
+while [ $# -gt 0 ]; do
+    case $1 in
+        -k|--kill)
+            ONLY_KILL=1
+            ;;
+        -p|--port)
+            shift
+            PROXY_PORT=$1
+            if [ -z "$PROXY_PORT" ]; then
+                echo "--port needs port number."
+                exit 1
+            fi
+            ;;
+        -l|--list)
+            PROXY_PORT=".*"
+            ONLY_LIST=1
+            ;;
+    esac
+
+    shift
+done
+
+check_config PROXY_HOST PROXY_PORT
+
+COMMAND="ssh -fND $PROXY_PORT $PROXY_HOST"
+
+old_pid="$(ps x | grep -- "$COMMAND" | grep -v grep | gawk '{print $1}')"
+
+if [ $ONLY_LIST -eq 1 ]; then
+    if [ -z "$old_pid" ]; then
+        echo "No proxies found."
+        exit 0
+    fi
+    echo "Listening for ports..."
+    for i in $old_pid; do
+        line="$(ps x | grep -- "$i" | grep -- "$PROXY_HOST" | grep -v grep | gawk '{print $1 " port " $7}')"
+        echo $line
+    done
+    exit 0
+fi
+
+echo -n "Looking for ssh process..."
+
+if [ "$old_pid" != "" ]; then
+    echo -n "found ${old_pid}..."
+    kill $old_pid
+    echo "killed."
+else
+    echo "not found."
+fi
+
+if [ $ONLY_KILL -eq 1 ]; then
+    exit 0
+fi
+
+echo -n "Opening socks proxy to port ${PROXY_PORT}..."
+$COMMAND
+if [ $? -eq 0 ]; then
+    echo "done."
+else
+    echo "error."
+fi
+
