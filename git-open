@@ -42,7 +42,7 @@ echo -e -n "Grepping...\r"
 
 $grepcommand -- "$search" $grepcommandpost | sed -e 's/\(.*:[0-9]\+\):/\1 :/' > "$output"
 
-if [ "$(wc -l "$output" | cut -d' ' -f1)" -eq 0 ]; then
+if [ "$(wc -l < "$output")" -eq 0 ]; then
     exit 1
 fi
 
