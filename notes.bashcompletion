@@ -6,6 +6,15 @@ _notes()
     COMPREPLY=()
     cur="${COMP_WORDS[COMP_CWORD]}"
 
+    opts="--new"
+
+    case "${cur}" in
+        -*)
+            COMPREPLY=($(compgen -W "${opts}" -- ${cur}))
+            return 0
+            ;;
+    esac
+
     local strings="$(notes --autocomplete "${cur}")"
     COMPREPLY=( $(compgen -W "${strings}" -- "${cur}") )
 
