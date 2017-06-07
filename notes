@@ -7,38 +7,64 @@ load_config
 check_config NOTEDIR="$HOME/notes" DOCDIR="$HOME/.vim/doc"
 need_binaries vim grep sed tr
 
-if [ "$1" == "--autocomplete" ]; then
-    search="[a-zA-Z0-9_-]*"
-    if [ $# -gt 1 ]; then
-        search="${2}${search}"
-    fi
-    grep -r -h -o -i -e "\*${search}\*" "$NOTEDIR"/* | sed -e 's/\*//g' | tr '[A-Z]' '[a-z]' | tr '\n' ' '
-    exit $?
-fi
+tag_lookup="personal-notes"
 
-if [ ! -d "$NOTEDIR" ]; then
-    mkdir -p "$NOTEDIR"
-    cat > "$NOTEDIR/notes.txt" << EOF
+function populate_notes {
+    topic="$1"
+    filename="$2.txt"
+    cat > "$NOTEDIR/$filename" << EOF
 " vim: filetype=help foldmethod=marker foldmarker=<<<,>>> modifiable noreadonly
 
-*personal-notes*
+*${topic}*
 EOF
-
-fi
+}
 
 if [ ! -L "$DOCDIR/$(basename "$NOTEDIR")" ]; then
     mkdir -p "$DOCDIR"
     ln -s "$NOTEDIR" "$DOCDIR"
 fi
 
-tag_lookup="personal-notes"
-if [ $# -gt 0 ]; then
-    single_tag=$1
-    search_hits=$(grep -r -i -e "\*${single_tag}.*\*" "$NOTEDIR"/* | wc -l)
-    if [ $search_hits -lt 1 ]; then
-        echo "no tags with query '$single_tag'"
-        exit 1
-    fi
-    tag_lookup="$single_tag"
+if [ ! -d "$NOTEDIR" ]; then
+    mkdir -p "$NOTEDIR"
+    populate_notes "$tag_lookup" "notes"
 fi
+
+case "$1" in
+    --autocomplete)
+        search="[a-zA-Z0-9_-.]*"
+        if [ $# -gt 1 ]; then
+            search="${2}${search}"
+        fi
+        grep -r -h -o -i -e "\*${search}\*" "$NOTEDIR"/* | sed -e 's/\*//g' | tr '[A-Z]' '[a-z]' | tr '\n' ' '
+        exit $?
+        ;;
+
+    --new)
+        if [ ! $# -gt 1 ]; then
+            echo "missing new note file"
+            exit 1
+        fi
+        if [ "$(dirname "$2")" != "." ]; then
+            mkdir -p "$NOTEDIR/$(dirname "$2")"
+        fi
+        tag_lookup="$(basename "$2")"
+        populate_notes "$tag_lookup" "$2"
+        ;;
+
+    *)
+        if [ $# -gt 0 ]; then
+            single_tag=$1
+            search_hits=$(grep -r -i -e "\*${single_tag}.*\*" "$NOTEDIR"/* | wc -l)
+            if [ $search_hits -lt 1 ]; then
+                echo "no tags with query '$single_tag'"
+                exit 1
+            elif [ $search_hits -gt 1 ]; then
+                echo "ambiguous query, matches $(notes --autocomplete $single_tag)"
+                exit 1
+            fi
+            tag_lookup="$single_tag"
+        fi
+        ;;
+esac
+
 exec vim -c ":helptags $DOCDIR | h $tag_lookup | only"
