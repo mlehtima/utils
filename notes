@@ -4,67 +4,41 @@ SCRIPTPATH="$(dirname "`readlink -f $0`")"
 source "$SCRIPTPATH/common.sh" || exit 1
 
 load_config
-check_config EDITOR NOTEFILE="$HOME/notes.txt"
-need_binaries $EDITOR gawk less
+check_config NOTEDIR="$HOME/notes" DOCDIR="$HOME/.vim/doc"
+need_binaries vim grep sed tr
 
-AWK_SCRIPT="$SCRIPTPATH/notes.awk"
-
-if [ ! -e "$AWK_SCRIPT" ]; then
-    echo "Critical helper script $AWK_SCRIPT missing."
-    exit 2
+if [ "$1" == "--autocomplete" ]; then
+    search="[a-zA-Z0-9_-]*"
+    if [ $# -gt 1 ]; then
+        search="${2}${search}"
+    fi
+    grep -r -h -o -i -e "\*${search}\*" "$NOTEDIR"/* | sed -e 's/\*//g' | tr '[A-Z]' '[a-z]' | tr '\n' ' '
+    exit $?
 fi
 
+if [ ! -d "$NOTEDIR" ]; then
+    mkdir -p "$NOTEDIR"
+    cat > "$NOTEDIR/notes.txt" << EOF
+" vim: filetype=help foldmethod=marker foldmarker=<<<,>>> modifiable noreadonly
+
+*personal-notes*
+EOF
+
+fi
+
+if [ ! -L "$DOCDIR/$(basename "$NOTEDIR")" ]; then
+    mkdir -p "$DOCDIR"
+    ln -s "$NOTEDIR" "$DOCDIR"
+fi
+
+tag_lookup="personal-notes"
 if [ $# -gt 0 ]; then
-    c=""
-    if [ "$1" == "-i" ]; then
-        c="-i"
-        shift
-    fi
-
-    if [ "$1" == "--autocomplete" ]; then
-        shift
-        if [ $# -gt 0 ]; then
-            search="$*"
-            grep --color=never --only-matching -- "${search}.*" "$NOTEFILE" | sed -e 's/\$/\\\$/g'
-        fi
-        exit 0
-    fi
-    if [ "$1" == "--autocomplete-remove" ]; then
-        shift
-        prefix=""
-        if [ "$1" == "--prefix" ]; then
-            shift
-            prefix="$1"
-            shift
-        fi
-        if [ $# -gt 0 ]; then
-            search="$*"
-            grep --color=never --only-matching -- "${search}.*" "$NOTEFILE" | sed -e "s/^$search/$prefix/" -e 's/\$/\\\$/g'
-        fi
-        exit 0
-    fi
-
-    if [ $# -eq 0 ]; then
-        echo "Provide grep string."
+    single_tag=$1
+    search_hits=$(grep -r -i -e "\*${single_tag}.*\*" "$NOTEDIR"/* | wc -l)
+    if [ $search_hits -lt 1 ]; then
+        echo "no tags with query '$single_tag'"
         exit 1
     fi
-
-    case "$1" in
-        +*)
-            search="${@}"
-            search="${search:1}"
-            if [ -z "$search" ]; then
-                echo "Provide search string."
-                exit 1
-            fi
-
-            pipeless="less -X -F"
-            gawk -f "$AWK_SCRIPT" -v search="$search" "$NOTEFILE" | $pipeless
-            ;;
-        *)
-            grep --color $c "$*" "$NOTEFILE"
-            ;;
-    esac
-else
-    exec $EDITOR "$NOTEFILE"
+    tag_lookup="$single_tag"
 fi
+exec vim -c ":helptags $DOCDIR | h $tag_lookup | only"
