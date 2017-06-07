@@ -1,0 +1,14 @@
+_notes()
+{
+    local cur prev opts
+    _init_completion -s || return
+
+    COMPREPLY=()
+    cur="${COMP_WORDS[COMP_CWORD]}"
+
+    local strings="$(notes --autocomplete "${cur}")"
+    COMPREPLY=( $(compgen -W "${strings}" -- "${cur}") )
+
+    return 0
+}
+complete -F _notes notes
