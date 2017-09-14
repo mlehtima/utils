@@ -50,9 +50,9 @@ if [ ! -f "$USE_KEY" ]; then
     exit 1
 fi
 
-SCRIPT="$(mktemp -u)"
+SCRIPT="upload-pubkey-$(date +%s)$RANDOM.tmp"
 SCRIPT_DATA=""
-REMOTE_SCRIPT="/home/$USE_USER/.$(basename $SCRIPT)"
+REMOTE_SCRIPT="/home/$USE_USER/.$SCRIPT"
 
 function finish {
     unset SSHPASS
@@ -69,7 +69,7 @@ export SSHPASS
 SCRIPT_DATA="#!/bin/bash
 #PASSW $SSHPASS
 mkdir -p ~/.ssh
-echo "$(cat $USE_KEY)" >> ~/.ssh/authorized_keys
+echo \"$(cat $USE_KEY)\" >> ~/.ssh/authorized_keys
 chmod -R go-rwx ~/.ssh"
 
 if [ ! -z "$USE_SSHPASS" ]; then
