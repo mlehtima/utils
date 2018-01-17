@@ -47,6 +47,7 @@ ftypes = [
 	Handler('ace',      ['unace'],            'Ace archive.',                                     'unace x "%s"',             [r'\.ace$']),
 	Handler('arj',      ['arj'],              'Arj archive.',                                     'arj x -i "%s"',            [r'\.arj$']),
 	Handler('deb',      ['dpkg-deb'],         'Debian package.',                                  'dpkg-deb -x %s .',         [r'\.deb$']),
+	Handler('dsc',      ['dpkg-source'],      'Debian source package.',                           'dpkg-source -x "%s"',      [r'\.dsc$']),
 	Handler('rpm',      ['rpm2cpio', 'cpio'], 'Rpm package.',                                     'rpm2cpio %s | cpio -idm --quiet',  [r'\.rpm$']),
 	Handler('7z',       ['7z'],               '7zip package.',                                    '7z x "%s"',                [r'\.7z$']),
 	Handler('exe',      ['innoextract'],      'Inno Setup package (.exe).',                       'innoextract -s "%s"',      [r'\.exe$'])
