@@ -1,5 +1,7 @@
 #!/bin/bash
 
+# Works with any editor but best with vim :)
+#
 # Add to your .vimrc:
 #
 # au BufRead *.gitopenbuffer set filetype=gitopenbuffer
@@ -7,16 +9,41 @@
 # autocmd FileType gitopenbuffer map <buffer> j <Down> ^
 # autocmd FileType gitopenbuffer map <buffer> k ^<Backspace><Backspace>^
 # autocmd FileType gitopenbuffer map <buffer> q :q!<CR>
+# command! -nargs=* -complete=shellcmd G tabnew | setlocal filetype=gitopenbuffer buftype=nofile bufhidden=hide noswapfile | r !vim-grep "<args>"
+#
+# It is possible to invoke vim-grep from inside vim with command :G
 
 SCRIPTPATH="$(dirname "`readlink -f $0`")"
 source "$SCRIPTPATH/common.sh" || exit 1
 
-check_config EDITOR
-need_binary git grep sed tempfile $EDITOR
+check_config EDITOR=less
+need_binaries git grep sed tempfile $EDITOR
 
-if [ $# -lt 1 ]; then
+result=""
+
+function print_log {
+    # only print when outside vim
+    if [ -z "$VIMRUNTIME" ]; then
+        echo $@
+    fi
+}
+
+function write_output {
+    # write to file when outside vim
+    if [ -z "$VIMRUNTIME" ]; then
+        if [ -z "$result" ]; then
+            result="$(tempfile -p grep -s .gitopenbuffer)"
+        fi
+        echo "$@" >> "$result"
+    else
+        echo "$@"
+    fi
+}
+
+if [[ $# -lt 1 || "$1" == "" ]]; then
     echo "fatal: no pattern given."
-    exit 128 # same as with git grep
+    # same exit code as with git grep
+    exit 128
 fi
 
 git branch > /dev/null 2>&1
@@ -29,16 +56,20 @@ else
 fi
 
 output="$(tempfile -p temp)"
-result="$(tempfile -p grep -s .gitopenbuffer)"
 search="$@"
 
 function finish {
-    rm -f "$output" "$result"
+    if [ -e "$output" ]; then
+        rm -f "$output"
+    fi
+    if [ -e "$result" ]; then
+        rm -f "$result"
+    fi
 }
 
 trap finish EXIT
 
-echo -e -n "Grepping...\r"
+print_log -e -n "Grepping...\r"
 
 $grepcommand -- "$search" $grepcommandpost | sed -e 's/\(.*:[0-9]\+\):/\1 :/' > "$output"
 
@@ -51,22 +82,25 @@ plural=""
 if [ $hits -gt 1 ]; then
     plural="s"
 fi
-echo -e "\n== ${hits} hit${plural} ==" >> "$result"
+write_output "== ${hits} hit${plural} =="
 
 set -f
 old_filename=""
 while IFS='' read -r line || [[ -n "$line" ]]; do
     filename="${line%%:*}"
     if [ "$filename" != "$old_filename" ]; then
-        echo "" >> "$result"
+        write_output ""
         old_filename="$filename"
     fi
-    echo "$line" >> "$result"
+    write_output "$line"
 done < "$output"
 
 if [ "$EDITOR" == "vim" ]; then
-    $EDITOR "+/${search//\//\\/}" "$result"
+    if [ -z "$VIMRUNTIME" ]; then
+        vim "+/${search//\//\\/}" "$result"
+        exit $?
+    fi
 else
     $EDITOR "$result"
+    exit $?
 fi
-exit $?
