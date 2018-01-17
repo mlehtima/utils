@@ -80,8 +80,14 @@ quit_event() {
 }
 
 if [ ! -d /parentroot ]; then
-    echo "Are you running inside SDK?"
-    exit 1
+    # Try to run this script inside sdk
+    if [ -z "$(ps aufx | grep server-sdk-notifier | grep -v grep)" ]; then
+        echo "Starting notifier..."
+        server-sdk-notifier &
+    fi
+    echo "Starting server-sdk inside mer sdk..."
+    exec /srv/mer/sdks/sdk/mer-sdk-chroot server-sdk
+    exit 0
 fi
 
 trap do_event SIGUSR1
