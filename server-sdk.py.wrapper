@@ -1,0 +1,15 @@
+#!/bin/bash
+
+session_bus_file="/tmp/server-sdk.py.wrapper.u6j5hsfthftg4"
+
+if [ ! -d /parentroot ]; then
+    # Try to run this script inside sdk
+    echo "Starting server-sdk.py inside mer sdk..."
+    echo "DBUS_SESSION_BUS_ADDRESS=$DBUS_SESSION_BUS_ADDRESS" > "$session_bus_file"
+    exec /srv/mer/sdks/sdk/mer-sdk-chroot server-sdk
+    exit 0
+else
+    source "/parentroot/$session_bus_file"
+    export DBUS_SESSION_BUS_ADDRESS
+    exec server-sdk.py
+fi
