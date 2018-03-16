@@ -22,9 +22,18 @@ def usage():
 	sys.exit(0)
 
 def sort_by_fds(a, b):
-	if a.num_fds() > b.num_fds():
+	try:
+		a_fds = a.num_fds()
+	except psutil.NoSuchProcess, psutil.AccessDenied:
+		a_fds = 0
+	try:
+		b_fds = b.num_fds()
+	except psutil.NoSuchProcess, psutil.AccessDenied:
+		b_fds = 0
+
+	if a_fds > b_fds:
 		return -1
-	elif a.num_fds() == b.num_fds():
+	elif a_fds == b_fds:
 		return 0
 	else:
 		return 1
@@ -64,7 +73,10 @@ def main():
 	print("PID".rjust(6) + "FDs".rjust(6) + "cmd".rjust(4))
 
 	for p in our_p:
-		print("{0:6d} {1:5d} {2:s}".format(p.pid, p.num_fds(), p.exe()))
+		try:
+			print("{0:6d} {1:5d} {2:s}".format(p.pid, p.num_fds(), p.exe()))
+		except psutil.NoSuchProcess, psutil.AccessDenied:
+			pass
 
 if __name__ == "__main__":
 	main()
