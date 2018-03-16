@@ -42,9 +42,9 @@ def quit():
 def print_tasks():
     tasks = method("Tasks")()
     if len(tasks) > 0:
-        print("{0:6s} {1:10s} {2:s}".format("[id]", "[state]", "[cmdline]"))
+        print "[id]", "[state]".ljust(8), "[cmdline]"
         for idno, state, cmd in tasks:
-            print("{0:6d} {1:10s} {2:s}".format(idno, state_str(state), cmd))
+            print("{0:4d} {1:8s} {2:s}".format(idno, state_str(state), cmd))
 
 def cancel(idno):
     if idno < 0:

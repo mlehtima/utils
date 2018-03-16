@@ -272,9 +272,9 @@ class TaskManager():
             task.lock()
             if task.state() == Task.RUNNING:
                 running = task
-            else:
-                task.cancel()
             task.unlock()
+            if task != running:
+                task.cancel()
         if running:
             running.cancel()
         self._tasks_lock.release()
