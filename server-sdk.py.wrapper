@@ -9,7 +9,8 @@ if [ ! -d /parentroot ]; then
     exec /srv/mer/sdks/sdk/mer-sdk-chroot server-sdk
     exit 0
 else
-    source "/parentroot/$session_bus_file"
+    source "/parentroot$session_bus_file"
     export DBUS_SESSION_BUS_ADDRESS
+    rm -f "/parentroot$session_bus_file"
     exec server-sdk.py
 fi
