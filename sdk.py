@@ -1,10 +1,13 @@
 #!/usr/bin/env python
 
 import dbus
+import dbus.mainloop.glib
 import os
 import sys
+import signal
 import ConfigParser
 import StringIO
+from gi.repository import GObject as gobject
 
 PATH="/org/sailfish/sdkrun"
 NAME="org.sailfish.sdkrun"
@@ -39,12 +42,37 @@ def method(method):
 def quit():
     method("Quit")()
 
-def print_tasks():
+def print_tasks(clear=False, print_empty=False):
+    if clear:
+        # not best but shortest solution for now
+        os.system("clear")
     tasks = method("Tasks")()
     if len(tasks) > 0:
         print "[id]", "[state]".ljust(8), "[cmdline]"
         for idno, state, cmd in tasks:
             print("{0:4d} {1:8s} {2:s}".format(idno, state_str(state), cmd))
+    elif print_empty:
+        print("No active tasks.")
+
+class TaskMonitor():
+    def __init__(self):
+        dbus.mainloop.glib.DBusGMainLoop(set_as_default=True)
+        bus = dbus.SessionBus()
+        bus.add_signal_receiver(TaskMonitor.task_handler,
+                                dbus_interface=NAME,
+                                signal_name="TaskStateChanged")
+        self.mainloop = gobject.MainLoop()
+
+    def run(self):
+        print_tasks(True, True)
+        self.mainloop.run()
+
+    @staticmethod
+    def task_handler(new_state, task_id, task_pwd, task_cmd, duration):
+        print_tasks(True, True)
+
+def monitor_tasks():
+    TaskMonitor().run()
 
 def cancel(idno):
     if idno < 0:
@@ -112,7 +140,10 @@ def main():
         quit()
 
     elif cmd == "sdk-tasks":
-        print_tasks()
+        if len(sys.argv) > 1 and sys.argv[1] == "--monitor":
+            monitor_tasks()
+        else:
+            print_tasks()
 
     elif cmd == "sdk-cancel":
         idno = -1
