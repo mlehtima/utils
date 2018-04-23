@@ -249,6 +249,7 @@ class TaskManager():
         self._last_pwd = pwd
         self._last_cmdline = cmdline
         self._printer.debug("task added")
+        self._service.TaskStateChanged(task.state(), task.id(), task.pwd(), task.cmdline(), task.time())
         return task.id()
 
     def repeat_task(self):
