@@ -74,19 +74,26 @@ def get_default_target():
         pass
     return default
 
+def apply_default(cmd, final):
+    use_default = True
+    for arg in cmd:
+        if arg == '-t':
+            use_default = False
+            break
+    if use_default:
+        default = get_default_target()
+        if default:
+            final.extend(['-t', default])
+
 def run_mb2(pwd, cmd):
     final = ['mb2']
-    default = get_default_target()
-    if default:
-        final.extend(['-t', default])
+    apply_default(cmd, final)
     final.extend(cmd)
     run(pwd, final)
 
 def run_sdk_install(pwd, cmd):
     final = ['sb2']
-    default = get_default_target()
-    if default:
-        final.extend(['-t', default])
+    apply_default(cmd, final)
     final.extend(['-m', 'sdk-install', '-R'])
     final.extend(cmd)
     run(pwd, final)
