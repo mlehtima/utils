@@ -241,9 +241,15 @@ class TaskManager():
         if len(self._tasks) == 0:
             Task.reset_ids()
         task = Task(pwd, cmdline, self._task_state_changed, self._task_process_line)
+        try:
+            if len(self._tasks) == 0:
+                task.start()
+        except:
+            self._printer.println("[\x1b[32m%s\x1b[39m] %s  \x1b[31mFailed to create task thread\x1b[39m" % (task.pwd(), task.cmdline()))
+            self._tasks_lock.release()
+            return -1
+
         self._tasks.append(task)
-        if len(self._tasks) == 1:
-            task.start()
         self._tasks_lock.release()
 
         self._last_pwd = pwd
