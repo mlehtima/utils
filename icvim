@@ -1,0 +1,95 @@
+#!/bin/bash
+
+declare -A compiler_cmd=( ["c"]="gcc -Wall -std=c99" ["cpp"]="g++ -Wall" ["sh"]="run_bash" )
+
+function run_bash {
+    # We don't support compflags
+    compflags=" "
+    local bash_script="$1"
+    local target="$3"
+    echo '#!/bin/bash' > "$target"
+    cat "$bash_script" >> "$target"
+    chmod +x "$target"
+}
+
+function edit_file {
+    konsole --nofork -e "vim $2" 2>/dev/null
+    rm "$1"
+}
+
+if [ $# -lt 1 ]; then
+    echo "Usage: $(basename $0) <flags> <filename.{c,cpp,sh}>"
+    exit 1
+fi
+
+filename=""
+compflags=""
+compargs=""
+
+while [ $# -gt 0 ]; do
+    case "$1" in
+        -*)
+            if [ "$1" == "-a" ]; then
+                shift
+                compargs="$compargs $1"
+            else
+                compflags="$compflags $1"
+            fi
+            ;;
+        *)
+            filename="$1"
+            ;;
+    esac
+    shift
+done
+
+if [ -d "$filename" ]; then
+    echo "Argument must be file."
+    exit 1
+fi
+
+suffix="${filename##*.}"
+if [ -z "${compiler_cmd[$suffix]}" ]; then
+    echo "Unsupported suffix '$suffix'"
+    exit 1
+fi
+
+compflags="$compflags "
+compname="$(tempfile -p output)"
+if [ $# -gt 1 ]; then
+    shift
+    compflags=" $@ "
+fi
+
+lockfile="$(tempfile -p icvim)"
+edit_file "$lockfile" "$filename" &
+
+sleep 0.1
+
+while [ 1 ]; do
+    if [ ! -e "$lockfile" ]; then
+        break
+    fi
+
+    change="$(inotifywait "$lockfile" "$filename" 2>/dev/null)"
+    change_file="$(echo "$change" | cut -d' ' -f1)"
+    change_event="$(echo "$change" | cut -d' ' -f2)"
+
+    if [ "$change_file" == "$lockfile" ]; then
+        # assume konsole has closed
+        break
+    fi
+
+    if [[ "$change_event" == "CLOSE_WRITE,CLOSE" ||
+          "$change_event" == "MOVE_SELF" ]]; then
+        echo "--- ${compiler_cmd[$suffix]}${compflags}${filename} ---"
+        sleep 0.1
+        ${compiler_cmd[$suffix]} $compflags $filename -o "$compname"
+        if [ $? -eq 0 ]; then
+            $compname $compargs
+        fi
+        echo "---"
+    fi
+done
+
+rm -f "$compname"
