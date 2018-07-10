@@ -18,7 +18,7 @@
 # need to be found in $PATH
 # Exits with 1 if binary not found.
 function need_binaries {
-    missing=0
+    local missing=0
     which 2>/dev/null
     if [ $? -eq 127 ]; then
         echo "$(basename $0): Critical binary which missing, abort."
@@ -47,11 +47,15 @@ function check_config {
 
     while [ $# -gt 0 ]; do
 
-        default=""
-        var="$1"
+        local default=""
+        local var="$1"
+        local var_tmp=
 
         if [[ "$var" == *"="* ]]; then
-            default="$(echo "$var" | cut -d= -f2)"
+            var_tmp="$(echo "$var" | cut -d= -f1)"
+            var_tmp=${#var_tmp}
+            ((var_tmp+=2))
+            default="$(echo "$var" | cut -b${var_tmp}-)"
             var="$(echo "$var" | cut -d= -f1)"
         fi
 
@@ -76,7 +80,7 @@ function check_need_user {
         return
     fi
 
-    user=$(whoami 2>/dev/null)
+    local user=$(whoami 2>/dev/null)
 
     if [ ! $? -eq 0 ]; then
         echo "$(basename $0): Critical binary whoami missing, abort."
