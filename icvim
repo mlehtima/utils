@@ -1,6 +1,18 @@
 #!/bin/bash
 
-declare -A compiler_cmd=( ["c"]="gcc -Wall -std=c99" ["cpp"]="g++ -Wall" ["sh"]="run_bash" )
+SCRIPTPATH="$(dirname "`readlink -f $0`")"
+source "$SCRIPTPATH/common.sh" || exit 1
+
+load_config
+check_config ICVIM_OPEN="gvim -f"
+check_config ICVIM_COMPILE_C="gcc -Wall -std=c99"
+check_config ICVIM_COMPILE_CPP="g++ -Wall"
+need_binaries cpp g++ bash inotifywait tempfile $(echo "$ICVIM_OPEN" | cut -d' ' -f1)
+
+declare -A compiler_cmd
+compiler_cmd+=( ["c"]="$ICVIM_COMPILE_C" )
+compiler_cmd+=( ["cpp"]="$ICVIM_COMPILE_CPP" )
+compiler_cmd+=( ["sh"]="run_bash" )
 
 function run_bash {
     # We don't support compflags
@@ -13,12 +25,18 @@ function run_bash {
 }
 
 function edit_file {
-    konsole --nofork -e "vim $2" 2>/dev/null
-    rm "$1"
+    local lock_file="$1"
+    local edit_file="$2"
+    $ICVIM_OPEN "$edit_file" 2>/dev/null
+    rm "$lock_file"
 }
 
 if [ $# -lt 1 ]; then
-    echo "Usage: $(basename $0) <flags> <filename.{c,cpp,sh}>"
+    echo -n "Usage: $(basename $0) [flags] <filename.{"
+    for ftype in "${!compiler_cmd[@]}"; do
+        echo -n "$ftype,"
+    done
+    echo "}>"
     exit 1
 fi
 
