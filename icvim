@@ -14,7 +14,7 @@ compiler_cmd+=( ["c"]="$ICVIM_COMPILE_C" )
 compiler_cmd+=( ["cpp"]="$ICVIM_COMPILE_CPP" )
 compiler_cmd+=( ["sh"]="run_bash" )
 
-function run_bash {
+run_bash() {
     # We don't support compflags
     compflags=" "
     local bash_script="$1"
@@ -24,20 +24,29 @@ function run_bash {
     chmod +x "$target"
 }
 
-function edit_file {
+edit_file() {
     local lock_file="$1"
     local edit_file="$2"
     $ICVIM_OPEN "$edit_file" 2>/dev/null
     rm "$lock_file"
 }
 
-if [ $# -lt 1 ]; then
+icvim_usage() {
     echo -n "Usage: $(basename $0) [flags] <filename.{"
     for ftype in "${!compiler_cmd[@]}"; do
         echo -n "$ftype,"
     done
     echo "}>"
+}
+
+if [ $# -lt 1 ]; then
+    icvim_usage
     exit 1
+fi
+
+if [[ "$1" == "-h" || "$1" == "--help" ]]; then
+    icvim_usage
+    exit 0
 fi
 
 filename=""
