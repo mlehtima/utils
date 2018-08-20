@@ -13,6 +13,7 @@ declare -A compiler_cmd
 compiler_cmd+=( ["c"]="$ICVIM_COMPILE_C" )
 compiler_cmd+=( ["cpp"]="$ICVIM_COMPILE_CPP" )
 compiler_cmd+=( ["sh"]="run_bash" )
+compiler_cmd+=( ["py"]="run_python" )
 
 run_bash() {
     # We don't support compflags
@@ -21,6 +22,16 @@ run_bash() {
     local target="$3"
     echo '#!/bin/bash' > "$target"
     cat "$bash_script" >> "$target"
+    chmod +x "$target"
+}
+
+run_python() {
+    # We don't support compflags
+    compflags=" "
+    local python_script="$1"
+    local target="$3"
+    echo '#!/usr/bin/env python' > "$target"
+    cat "$python_script" >> "$target"
     chmod +x "$target"
 }
 
