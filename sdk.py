@@ -5,6 +5,8 @@ import dbus.mainloop.glib
 import os
 import sys
 import signal
+import distutils.spawn
+from subprocess import Popen, PIPE, STDOUT
 import ConfigParser
 import StringIO
 from gi.repository import GObject as gobject
@@ -161,7 +163,24 @@ def main():
         if len(sys.argv) > 1:
             set_default_target(sys.argv[1])
         else:
-            print get_default_target()
+            if distutils.spawn.find_executable("dmenu"):
+                targets = []
+                default_target = get_default_target()
+                sb2 = os.path.expanduser("~/.scratchbox2")
+                files = os.listdir(sb2)
+                for f in files:
+                    if os.path.isdir(os.path.join(sb2, f)) and default_target != f:
+                        targets.append(f)
+                targets.sort()
+                if default_target:
+                    targets.insert(0, default_target)
+                if len(targets) > 0:
+                    p = Popen(["dmenu", "-p", "set default sb2 target:"], stdin=PIPE, stdout=PIPE, stderr=STDOUT)
+                    ret = p.communicate(input="\n".join(targets))[0]
+                    if ret:
+                        set_default_target(ret.split("\n")[0])
+            else:
+                print get_default_target()
 
     elif cmd == "sdk-install":
         if len(sys.argv) > 1:
