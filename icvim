@@ -81,12 +81,7 @@ if [ -z "${compiler_cmd[$suffix]}" ]; then
     exit 1
 fi
 
-compflags="$compflags "
 compname="$(tempfile -p output)"
-if [ $# -gt 1 ]; then
-    shift
-    compflags=" $@ "
-fi
 
 lockfile="$(tempfile -p icvim)"
 edit_file "$lockfile" "$filename" &
@@ -109,9 +104,9 @@ while [ 1 ]; do
 
     if [[ "$change_event" == "CLOSE_WRITE,CLOSE" ||
           "$change_event" == "MOVE_SELF" ]]; then
-        echo "--- ${compiler_cmd[$suffix]}${compflags}${filename} ---"
+        echo "--- ${compiler_cmd[$suffix]} ${filename} ${compflags} ---"
         sleep 0.1
-        ${compiler_cmd[$suffix]} $compflags $filename -o "$compname"
+        ${compiler_cmd[$suffix]} $filename $compflags -o "$compname"
         if [ $? -eq 0 ]; then
             $compname $compargs
         fi
