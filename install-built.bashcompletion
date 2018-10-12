@@ -1,0 +1,34 @@
+__install-built-files()
+{
+    if [ "$(ls -1 "$1/"*.rpm 2>/dev/null | wc -l)" -gt 0 ]; then
+        ls -1 "$1/"*.rpm | xargs -n1 basename
+    fi
+}
+
+_install-built()
+{
+    local cur current_dir rpms_dir
+    _init_completion -s || return
+
+    COMPREPLY=()
+    cur="${COMP_WORDS[COMP_CWORD]}"
+
+    current_dir="$PWD"
+    while [ "$PWD" != "/" ]; do
+        if [ -d "RPMS" ]; then
+            rpms_dir="$PWD/RPMS"
+            break
+        fi
+        cd ..
+    done
+    cd "$current_dir"
+
+    case "${cur}" in
+        *)
+            COMPREPLY=($(compgen -W "$(__install-built-files $rpms_dir)" -- ${cur}))
+        ;;
+    esac
+
+    return 0
+}
+complete -F _install-built install-built

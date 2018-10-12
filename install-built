@@ -1,0 +1,75 @@
+#!/bin/bash
+
+SCRIPTPATH="$(dirname "`readlink -f $0`")"
+source "$SCRIPTPATH/common.sh" || exit 1
+
+need_binaries scp ssh
+load_config
+check_config IGNORE_PACKAGES=" " INSTALL_USER="root" INSTALL_HOST="192.168.2.15"
+
+current_dir="$PWD"
+rpms_dir=
+to_copy=
+to_install=
+install_opts=
+wildcards=$@
+remote="$INSTALL_USER@$INSTALL_HOST"
+
+# search rpm output directory...
+while [ "$PWD" != "/" ]; do
+    if [ -d "RPMS" ]; then
+        rpms_dir="$PWD/RPMS"
+        break
+    fi
+    cd ..
+done
+
+cd "$current_dir"
+
+if [ ! -d "$rpms_dir" ]; then
+    echo "Could not find RPMS directory."
+    exit 1
+fi
+
+if [ $(ls "$rpms_dir" | grep \.rpm | wc -l) -eq 0 ]; then
+    echo "No packages in $rpms_dir"
+    exit 2
+fi
+
+for package in "$rpms_dir/"*.rpm; do
+    fname="$(basename $package)"
+    skip=0
+    for i in $IGNORE_PACKAGES; do
+        if [[ "$fname" == *"${i}"* ]]; then
+            skip=1
+            break
+        fi
+    done
+    if [ $skip -eq 1 ]; then
+        continue
+    fi
+
+    if [ "$wildcards" != "" ]; then
+        install_opts="--nodeps"
+        for w in $wildcards; do
+            if [[ "$fname" == *"$w"* ]]; then
+                to_copy="$to_copy $package"
+                to_install="$to_install $fname"
+            fi
+        done
+    else
+        to_copy="$to_copy $package"
+        to_install="$to_install $fname"
+    fi
+done
+
+if [ "$to_copy" == "" ]; then
+    echo "No files to install."
+    exit 1
+fi
+
+# first copy...
+scp -q $to_copy $remote:/tmp
+
+# then install and delete...
+ssh -q $remote "cd /tmp && rpm -v -U $install_opts --force $to_install ; rm -f $to_install"
