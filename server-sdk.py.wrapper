@@ -12,5 +12,8 @@ else
     source "/parentroot$session_bus_file"
     export DBUS_SESSION_BUS_ADDRESS
     rm -f "/parentroot$session_bus_file"
+    if [ ! -e "/run/user/$UID" ]; then
+        sudo ln -s /parentroot/run/user/$UID /run/user/$UID
+    fi
     exec server-sdk.py
 fi
