@@ -136,18 +136,18 @@ def cancel_all():
     method("CancelAll")()
 
 def main():
-    cmd = ''.join(sys.argv[0].split("/")[-1:])
+    cmd = ''.join(sys.argv[0].split("-")[-1:])
 
-    if cmd == "sdk-quit":
+    if cmd == "quit":
         quit()
 
-    elif cmd == "sdk-tasks":
+    elif cmd == "tasks":
         if len(sys.argv) > 1 and sys.argv[1] == "--monitor":
             monitor_tasks()
         else:
             print_tasks()
 
-    elif cmd == "sdk-cancel":
+    elif cmd == "cancel":
         idno = -1
         if len(sys.argv) > 1:
             if sys.argv[1] == "all":
@@ -156,10 +156,10 @@ def main():
             idno = int(sys.argv[1])
         cancel(idno)
 
-    elif cmd == "sdk-cancelall":
+    elif cmd == "cancelall":
         cancel_all()
 
-    elif cmd == "sdk-default_target":
+    elif cmd == "default_target":
         if len(sys.argv) > 1:
             set_default_target(sys.argv[1])
         else:
@@ -182,21 +182,21 @@ def main():
             else:
                 print get_default_target()
 
-    elif cmd == "sdk-install":
+    elif cmd == "install":
         if len(sys.argv) > 1:
             run_sdk_install(os.getcwd(), sys.argv[1:])
 
-    elif cmd == "sdk-zypper":
+    elif cmd == "zypper":
         run_sdk_install(os.getcwd(), [ 'zypper' ] + sys.argv[1:])
 
-    elif cmd == "sdk-rpm":
+    elif cmd == "rpm":
         run_sdk_install(os.getcwd(), [ 'rpm' ] + sys.argv[1:])
 
-    elif cmd == "sdk-mb2":
+    elif cmd == "mb2":
         if len(sys.argv) > 1:
             run_mb2(os.getcwd(), sys.argv[1:])
 
-    elif cmd == "sdk-repeat":
+    elif cmd == "repeat":
         repeat()
 
     elif len(sys.argv) > 1:
