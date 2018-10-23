@@ -39,7 +39,7 @@ function backup_directories {
     do
         filename="${i//\//_}.tar.gz.gpg"
         target="$TARGET_DIR/$filename"
-        logfile="$(tempfile)"
+        logfile="$(mktemp)"
 
         echo "$i -> $SSH_SERVER:$target [$current/$total_count]..."
         echo -e -n "\rCalculating size..."
@@ -71,7 +71,7 @@ function backup_databases {
     for i in $DATABASES; do
         filename="mysqldb.$i.dump.gpg"
         target="$TARGET_DIR/$filename"
-        logfile="$(tempfile)"
+        logfile="$(mktemp)"
         echo -n "DB $i -> $SSH_SERVER:$target [$current/$total_count]..."
         mysqldump --defaults-file=$MYSQL_CONFIG -u root "$i" 2>$logfile | gpg -e -r $GPG_RECIPIENT | ssh $SSH_SERVER "cat > $target"
         echo "done."
@@ -82,10 +82,10 @@ function backup_databases {
 
 check_config GPG_RECIPIENT SSH_SERVER SSH_DIRECTORY TARGET_DIR MYSQL_CONFIG
 if [ ! -z "$DIRECTORIES" ]; then
-    need_binaries tar pigz pv gpg ssh tempfile
+    need_binaries tar pigz pv gpg ssh mktemp
 fi
 if [ ! -z "$DATABASES" ]; then
-    need_binaries mysqldump gpg ssh tempfile
+    need_binaries mysqldump gpg ssh mktemp
 fi
 check_need_user
 backup_databases
