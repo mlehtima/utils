@@ -17,7 +17,7 @@ SCRIPTPATH="$(dirname "`readlink -f $0`")"
 source "$SCRIPTPATH/common.sh" || exit 1
 
 check_config EDITOR=less
-need_binaries git grep sed tempfile $EDITOR
+need_binaries git grep sed mktemp $EDITOR
 
 result=""
 
@@ -32,7 +32,7 @@ function write_output {
     # write to file when outside vim
     if [ -z "$VIMRUNTIME" ]; then
         if [ -z "$result" ]; then
-            result="$(tempfile -p grep -s .gitopenbuffer)"
+            result="$(mktemp --tmpdir= grep.XXXXXX.gitopenbuffer)"
         fi
         echo "$@" >> "$result"
     else
@@ -55,7 +55,7 @@ else
     grepcommandpost="*"
 fi
 
-output="$(tempfile -p temp)"
+output="$(mktemp --tmpdir= temp.XXXXXX)"
 search="$@"
 
 function finish {
