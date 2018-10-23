@@ -3,7 +3,7 @@
 SCRIPTPATH="$(dirname "`readlink -f $0`")"
 source "$SCRIPTPATH/common.sh" || exit 1
 
-need_binaries lame tempfile
+need_binaries lame mktemp
 load_config
 check_config PROCESSES=8
 
@@ -18,7 +18,7 @@ then
 	exit 0
 fi
 
-SLOT="$(tempfile -p mlame -s .lock)"
+SLOT="$(mktemp --tmpdir= mlame.XXXXXX.lock)"
 
 LAME_OPTS="$1"
 shift
