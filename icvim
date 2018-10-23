@@ -7,7 +7,7 @@ load_config
 check_config ICVIM_OPEN="gvim -f"
 check_config ICVIM_COMPILE_C="gcc -Wall -std=c99"
 check_config ICVIM_COMPILE_CPP="g++ -Wall"
-need_binaries cpp g++ bash inotifywait tempfile $(echo "$ICVIM_OPEN" | cut -d' ' -f1)
+need_binaries cpp g++ bash inotifywait mktemp $(echo "$ICVIM_OPEN" | cut -d' ' -f1)
 
 declare -A compiler_cmd
 compiler_cmd+=( ["c"]="$ICVIM_COMPILE_C" )
@@ -92,9 +92,9 @@ if [ -z "${compiler_cmd[$suffix]}" ]; then
     exit 1
 fi
 
-compname="$(tempfile -p output)"
+compname="$(mktemp --tmpdir= output.XXXXXX)"
 
-lockfile="$(tempfile -p icvim)"
+lockfile="$(mktemp --tmpdir= icvim.XXXXXX)"
 edit_file "$lockfile" "$filename" &
 
 sleep 0.1
