@@ -50,9 +50,15 @@ def print_tasks(clear=False, print_empty=False):
         os.system("clear")
     tasks = method("Tasks")()
     if len(tasks) > 0:
-        print "[id]", "[state]".ljust(8), "[cmdline]"
-        for idno, state, cmd in tasks:
-            print("{0:4d} {1:8s} {2:s}".format(idno, state_str(state), cmd))
+        print "[id]".ljust(5), "[path]".ljust(12), "[cmdline]"
+        for idno, state, full_path, cmd in tasks:
+            run_path = ''.join(full_path.split("/")[-1:])
+            if len(run_path) > 12:
+                run_path = run_path[:10] + ".."
+            running = " "
+            if state == STATE_RUNNING:
+                running = "*"
+            print("{0:4d}{1:1s} {2:12s} {3:s}".format(idno, running, run_path, cmd))
     elif print_empty:
         print("No active tasks.")
 
@@ -79,7 +85,7 @@ def monitor_tasks():
 def cancel(idno):
     if idno < 0:
         tasks = method("Tasks")()
-        for idn, state, cmd in tasks:
+        for idn, state, full_path, cmd in tasks:
             if state == STATE_RUNNING:
                 idno = idn
                 break
