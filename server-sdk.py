@@ -234,7 +234,7 @@ class TaskManager():
         ret = []
         self._tasks_lock.acquire()
         for i in self._tasks:
-            ret.append((i.id(), i.state(), i.cmdline()))
+            ret.append((i.id(), i.state(), i.pwd(), i.cmdline()))
         self._tasks_lock.release()
         return ret
 
@@ -347,7 +347,7 @@ class Service(dbus.service.Object):
         self._manager.quit()
         print("Service stopped")
 
-    @dbus.service.method(SERVICE_NAME, in_signature='', out_signature='a(iis)')
+    @dbus.service.method(SERVICE_NAME, in_signature='', out_signature='a(iiss)')
     def Tasks(self):
         return self._manager.tasks()
 
