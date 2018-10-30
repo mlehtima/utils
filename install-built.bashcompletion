@@ -19,9 +19,11 @@ _install-built()
             rpms_dir="$PWD/RPMS"
             break
         fi
-        cd ..
+        pushd .. 1>/dev/null
     done
-    cd "$current_dir"
+    while [ "$PWD" != "$current_dir" ]; do
+        popd 1>/dev/null
+    done
 
     case "${cur}" in
         *)
