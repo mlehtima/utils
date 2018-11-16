@@ -50,7 +50,7 @@ def print_tasks(clear=False, print_empty=False):
         os.system("clear")
     tasks = method("Tasks")()
     if len(tasks) > 0:
-        print "[id]".ljust(5), "[path]".ljust(12), "[cmdline]"
+        print("{0:5s} {1:12s} {2:s}".format("[id]", "[path]", "[cmdline]"))
         for idno, state, full_path, cmd in tasks:
             run_path = ''.join(full_path.split("/")[-1:])
             if len(run_path) > 12:
