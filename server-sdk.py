@@ -229,6 +229,7 @@ class TaskManager():
         self._printer = WorkerPrinter()
         self._last_pwd = None
         self._last_cmdline = None
+        signal.signal(signal.SIGINT, self._sigint_handler)
 
     def tasks(self):
         ret = []
@@ -330,6 +331,10 @@ class TaskManager():
 
         self._service.TaskStateChanged(task.state(), task.id(), task.pwd(), task.cmdline(), task.time())
 
+    # Gobble ctrl+c so that it doesn't kill us but trickles down to the subprocess
+    # we are running
+    def _sigint_handler(self, sig, frame):
+        pass
 
 
 class Service(dbus.service.Object):
@@ -341,7 +346,10 @@ class Service(dbus.service.Object):
         bus_name = dbus.service.BusName(SERVICE_NAME, dbus.SessionBus())
         dbus.service.Object.__init__(self, bus_name, SERVICE_PATH)
 
-        self._loop = gobject.MainLoop()
+        # gobject MainLoop installs by default signal handler for SIGINT
+        # creating the MainLoop with new(None, False) disables the signal
+        # handler so we can handle the signal later
+        self._loop = gobject.MainLoop.new(None, False)
         print("Service running...")
         self._loop.run()
         self._manager.quit()
