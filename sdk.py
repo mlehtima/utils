@@ -121,8 +121,8 @@ def apply_default(cmd, final):
         if default:
             final.extend(['-t', default])
 
-def run_mb2(pwd, cmd):
-    final = ['mb2']
+def run_cmd(pwd, exe, cmd):
+    final = [exe]
     apply_default(cmd, final)
     final.extend(cmd)
     run(pwd, final)
@@ -198,9 +198,9 @@ def main():
     elif cmd == "rpm":
         run_sdk_install(os.getcwd(), [ 'rpm' ] + sys.argv[1:])
 
-    elif cmd == "mb2":
+    elif cmd == "mb2" or cmd == "sb2":
         if len(sys.argv) > 1:
-            run_mb2(os.getcwd(), sys.argv[1:])
+            run_cmd(os.getcwd(), cmd, sys.argv[1:])
 
     elif cmd == "repeat":
         repeat()
