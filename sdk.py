@@ -192,11 +192,8 @@ def main():
         if len(sys.argv) > 1:
             run_sdk_install(os.getcwd(), sys.argv[1:])
 
-    elif cmd == "zypper":
-        run_sdk_install(os.getcwd(), [ 'zypper' ] + sys.argv[1:])
-
-    elif cmd == "rpm":
-        run_sdk_install(os.getcwd(), [ 'rpm' ] + sys.argv[1:])
+    elif cmd == "zypper" or cmd == "rpm":
+        run_sdk_install(os.getcwd(), [ cmd ] + sys.argv[1:])
 
     elif cmd == "mb2" or cmd == "sb2":
         if len(sys.argv) > 1:
