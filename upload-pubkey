@@ -7,6 +7,7 @@
 DEFAULT_KEY="$HOME/.ssh/id_rsa.pub"
 DEFAULT_USER="nemo"
 DEFAULT_HOST="192.168.2.15"
+EXECUTE_D="$HOME/.config/upload-pubkey.d"
 
 SSH_OPT="-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
 USE_KEY="$DEFAULT_KEY"
@@ -81,5 +82,13 @@ fi
 echo -e "$SCRIPT_DATA" | $INPUT_PASS ssh $SSH_OPT $USE_USER@$USE_HOST "cat > $REMOTE_SCRIPT ; chmod go-rwx,u+x $REMOTE_SCRIPT ; $REMOTE_SCRIPT ; grep \#PASSW $REMOTE_SCRIPT | cut -b8- | devel-su -c $REMOTE_SCRIPT 2>/dev/null; rm -f $REMOTE_SCRIPT"
 
 if [ $? -eq 0 ]; then
+    if [ -d "$EXECUTE_D" ]; then
+        for i in $(ls -1 "$EXECUTE_D" | sort); do
+            script="$EXECUTE_D/$i"
+            if [ -x "$script" ]; then
+                USE_KEY="$USE_KEY" USE_USER="$USE_USER" USE_HOST="$USE_HOST" SSH_OPT="$SSH_OPT" $script
+            fi
+        done
+    fi
     echo "done."
 fi
