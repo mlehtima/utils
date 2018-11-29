@@ -17,7 +17,7 @@
 # Args: space separated list of binaries that
 # need to be found in $PATH
 # Exits with 1 if binary not found.
-function need_binaries {
+need_binaries() {
     local missing=0
     which 2>/dev/null
     if [ $? -eq 127 ]; then
@@ -42,7 +42,7 @@ function need_binaries {
 # that need to be defined. Default can be set. For example:
 # check_config VARIABLE DEFAULT="default value"
 # Exits with 2 if environment variable without default value not defined.
-function check_config {
+check_config() {
     need_binaries cut
 
     while [ $# -gt 0 ]; do
@@ -74,7 +74,7 @@ function check_config {
 
 # Check for NEED_USER environment variable. If the variable is defined
 # exit with 3 if current user is different.
-function check_need_user {
+check_need_user() {
     # If NEED_USER is not defined, allow running as current user
     if [ -z "$NEED_USER" ]; then
         return
@@ -94,7 +94,7 @@ function check_need_user {
 }
 
 # Args: Path to configuration file to source, if file exists.
-function load_config_absolute {
+load_config_absolute() {
     if [ -z "$1" ]; then
         echo "$(basename $0): Incorrect use of load_config_absolute(), abort."
         exit 10
@@ -107,7 +107,7 @@ function load_config_absolute {
 
 # Args: Path to configuration file to source. Abort if file doesn't exist.
 # Exit with 4 if file not found.
-function need_config_absolute {
+need_config_absolute() {
     if [ ! -f "$1" ]; then
         echo "$(basename $0): Config file \"$1\" not found, abort."
         exit 4
@@ -118,13 +118,13 @@ function need_config_absolute {
 
 # Try to source file from users home .config directory.
 # Filename is <SCRIPT NAME>.config
-function load_config {
-    load_config_absolute "$HOME/.config/$(basename $0).config"
+load_config() {
+    load_config_absolute "$COMMON_CONFIG_LOCATION"
 }
 
 # Try to source file from users home .config directory. Abort if file doesn't exist.
 # Filename is <SCRIPT NAME>.config
 # Exit with 4 if file not found.
-function need_config {
-    need_config_absolute "$HOME/.config/$(basename $0).config"
+need_config() {
+    need_config_absolute "$COMMON_CONFIG_LOCATION"
 }
