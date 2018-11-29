@@ -14,6 +14,8 @@
 # Have symlink in $HOME/bin pointing to your script do_something.sh
 #
 
+COMMON_CONFIG_LOCATION="$HOME/.config/$(basename $0).config"
+
 # Args: space separated list of binaries that
 # need to be found in $PATH
 # Exits with 1 if binary not found.
