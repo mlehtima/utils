@@ -7,6 +7,7 @@ need_binaries scp ssh
 load_config
 check_config IGNORE_PACKAGES=" " INSTALL_USER="root" INSTALL_HOST="192.168.2.15"
 
+script_version="1"
 current_dir="$PWD"
 rpms_dir=
 to_copy=
@@ -14,6 +15,60 @@ to_install=
 install_opts=
 wildcards=$@
 remote="$INSTALL_USER@$INSTALL_HOST"
+
+print_usage() {
+    echo "$(basename $0) v$script_version"
+    echo ""
+    echo "  Configuration can be saved to config file to avoid using arguments,"
+    echo "  in $COMMON_CONFIG_LOCATION"
+    echo ""
+    echo "  --help                  Print this help"
+    echo "  -h|--host <value>       Which host to install to"
+    echo "                              default INSTALL_HOST=$INSTALL_HOST"
+    echo "  -u|--user <value>       Which user to use when installing [default $INSTALL_USER]"
+    echo "                              default INSTALL_USER=$INSTALL_USER"
+    echo "  -i|--ignore \"<value>\"   Packages to ignore when installing"
+    echo "                            Whitespace separated list of strings that are used to ignore"
+    echo "                            packages when installing. Strings are matched to any part of the"
+    echo "                            package name, so for example ignore value \"devel\" will"
+    echo "                            match foo-devel-0.1.rpm."
+    echo "                              default IGNORE_PACKAGES=\"$IGNORE_PACKAGES\""
+}
+
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --help)
+            print_usage
+            exit 0
+            ;;
+        -h|--host)
+            shift
+            if [ $# -lt 1 ]; then
+                echo "Parameter missing for host."
+                exit 1
+            fi
+            INSTALL_HOST="$1"
+            ;;
+        -u|--user)
+            shift
+            if [ $# -lt 1 ]; then
+                echo "Parameter missing for user."
+                exit 1
+            fi
+            INSTALL_USER="$1"
+            ;;
+        -i|--ignore)
+            shift
+            if [ $# -lt 1 ]; then
+                echo "Parameter missing for ignore."
+                exit 1
+            fi
+            IGNORE_PACKAGES="$1"
+            ;;
+    esac
+
+    shift
+done
 
 # search rpm output directory...
 while [ "$PWD" != "/" ]; do
