@@ -1,5 +1,14 @@
 #!/bin/bash
 
+# v3:
+#   - Add possibility to execute user defined scripts after uploading keys
+#     If executable files are found in $HOME/.config/upload-pubkey.d directory
+#     they are all executed (in random order) if key upload was successful.
+#     This can be used for example to set target environment properly, etc.
+#     When the scripts are executed the environment will contain values in
+#     variables USE_KEY, USE_USER, USE_HOST, SSH_OPT as defined when uploading
+#     the keys.
+#
 # v2:
 #   - use sshpass if available so that password needs to be typed only once
 #   - provide the password to devel-su from stdin to avoid visible password
