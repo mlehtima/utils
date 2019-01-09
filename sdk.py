@@ -181,7 +181,7 @@ def main():
                 if default_target:
                     targets.insert(0, default_target)
                 if len(targets) > 0:
-                    p = Popen(["dmenu", "-p", "set default sb2 target:"], stdin=PIPE, stdout=PIPE, stderr=STDOUT)
+                    p = Popen(["dmenu", "-fn", "Droid Sans Mono-17", "-p", "set default sb2 target:"], stdin=PIPE, stdout=PIPE, stderr=STDOUT)
                     ret = p.communicate(input="\n".join(targets))[0]
                     if ret:
                         set_default_target(ret.split("\n")[0])
