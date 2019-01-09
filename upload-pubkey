@@ -1,5 +1,9 @@
 #!/bin/bash
 
+# v4:
+#   - Default values for variables are read from $HOME/.config/upload-pubkey
+#     file if the file exists.
+#
 # v3:
 #   - Add possibility to execute user defined scripts after uploading keys
 #     If executable files are found in $HOME/.config/upload-pubkey.d directory
@@ -16,13 +20,18 @@
 DEFAULT_KEY="$HOME/.ssh/id_rsa.pub"
 DEFAULT_USER="nemo"
 DEFAULT_HOST="192.168.2.15"
-EXECUTE_D="$HOME/.config/upload-pubkey.d"
+DEFAULT_CONFIG="$HOME/.config/upload-pubkey"
+EXECUTE_D="$DEFAULT_CONFIG.d"
 
 SSH_OPT="-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
 USE_KEY="$DEFAULT_KEY"
 USE_USER="$DEFAULT_USER"
 USE_HOST="$DEFAULT_HOST"
 USE_SSHPASS="$(which sshpass)"
+
+if [ -e "$DEFAULT_CONFIG" ]; then
+    source "$DEFAULT_CONFIG"
+fi
 
 while [ $# -gt 0 ]; do
     case "$1" in
