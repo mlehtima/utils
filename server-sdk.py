@@ -83,7 +83,7 @@ class WorkerPrinter():
     def end(self):
         if len(self._errors) > 0 and self._lines > MIN_LINES_FOR_ERROR:
             for line in self._errors:
-                self._print(line)
+                self._print(ERROR_STR % line)
         self.reset()
 
     def done(self):
