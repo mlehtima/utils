@@ -1,12 +1,26 @@
 #!/bin/bash
 
-declare -i ID
-ID=`xinput list | grep -Eo 'TouchPad\s*id\=[0-9]{1,2}' | grep -Eo '[0-9]{1,2}'`
-declare -i STATE
-STATE=`xinput list-props $ID | grep 'Device Enabled' | awk '{print $4}'`
-NEW_STATE="enable"
-if [ $STATE -eq 1 ]; then
-    NEW_STATE="disable"
+TOUCHPAD_DEVICE_NAME=touchpad\ synaptics
+
+touchpad_id=
+for name in $TOUCHPAD_DEVICE_NAME; do
+    touchpad_id=$(xinput list | grep -i "$name" | sed -e 's/.*id=\([0-9]*\).*/\1/')
+    if [ ! -z "$touchpad_id" ]; then
+        break
+    fi
+done
+
+if [ -z "$touchpad_id" ]; then
+    echo "No touchpad device detected."
+    exit 1
 fi
-xinput $NEW_STATE $ID
-echo "Touchpad ${NEW_STATE}d."
+
+current_state=$(xinput list-props $touchpad_id | grep "Device Enabled" | awk '{ print $4 }')
+
+new_state="enable"
+if [ $current_state -eq 1 ]; then
+    new_state="disable"
+fi
+
+xinput $new_state $touchpad_id
+echo "Touchpad ${new_state}d."
