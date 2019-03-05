@@ -5,7 +5,7 @@ source "$SCRIPTPATH/common.sh" || exit 1
 
 need_binaries scp ssh
 load_config
-check_config IGNORE_PACKAGES=" " INSTALL_USER="root" INSTALL_HOST="192.168.2.15"
+check_config IGNORE_PACKAGES="-devel -tests -doc" INSTALL_USER="root" INSTALL_HOST="192.168.2.15"
 
 script_version="1"
 current_dir="$PWD"
@@ -24,15 +24,15 @@ print_usage() {
     echo ""
     echo "  --help                  Print this help"
     echo "  -h|--host <value>       Which host to install to"
-    echo "                              default INSTALL_HOST=$INSTALL_HOST"
+    echo "                              current INSTALL_HOST=$INSTALL_HOST"
     echo "  -u|--user <value>       Which user to use when installing [default $INSTALL_USER]"
-    echo "                              default INSTALL_USER=$INSTALL_USER"
+    echo "                              current INSTALL_USER=$INSTALL_USER"
     echo "  -i|--ignore \"<value>\"   Packages to ignore when installing"
     echo "                            Whitespace separated list of strings that are used to ignore"
     echo "                            packages when installing. Strings are matched to any part of the"
     echo "                            package name, so for example ignore value \"devel\" will"
     echo "                            match foo-devel-0.1.rpm."
-    echo "                              default IGNORE_PACKAGES=\"$IGNORE_PACKAGES\""
+    echo "                              current IGNORE_PACKAGES=\"$IGNORE_PACKAGES\""
 }
 
 while [ $# -gt 0 ]; do
