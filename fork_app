@@ -1,0 +1,28 @@
+#!/bin/bash
+
+# simple stupid script to fork whatever binary
+# and exit immediately.
+
+case "$(basename $0)" in
+    # Special cases for aliases to other commands
+    gitg)
+        git gui $@ &
+        ;;
+
+    # Default to running binary with same name as symbolic link
+    *)
+        bin="$(basename $0)"
+        if [ $(which -a $bin | wc -l) -lt 2 ]; then
+            echo "No $bin found."
+            exit 1
+        fi
+        for real_bin in $(which -a $bin); do
+            if [ ! -L "$real_bin" ]; then
+                exec $real_bin $@ &
+                break
+            fi
+        done
+        ;;
+esac
+
+exit 0
