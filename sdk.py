@@ -14,6 +14,8 @@ from gi.repository import GObject as gobject
 PATH="/org/sailfish/sdkrun"
 NAME="org.sailfish.sdkrun"
 
+TARGET_ARG="-t"
+
 STATE_CREATED   = 0
 STATE_STARTING  = 1
 STATE_CANCEL    = 2
@@ -112,14 +114,17 @@ def get_default_target():
 
 def apply_default(cmd, final):
     use_default = True
-    for arg in cmd:
-        if arg == '-t':
+    if TARGET_ARG in cmd:
+        i = cmd.index(TARGET_ARG)
+        if len(cmd) >= i + 2:
+            cmd.pop(i)
+            final.extend([TARGET_ARG, cmd[i]])
+            cmd.pop(i)
             use_default = False
-            break
     if use_default:
         default = get_default_target()
         if default:
-            final.extend(['-t', default])
+            final.extend([TARGET_ARG, default])
 
 def run_cmd(pwd, exe, cmd):
     final = [exe]
