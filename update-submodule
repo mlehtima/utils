@@ -1,0 +1,171 @@
+#!/bin/bash
+
+script_version=1
+
+PRINT_RED='\033[0;31m'
+PRINT_NC='\033[0m'
+
+branch=master
+remote=origin
+all_good=1
+
+print_error() {
+    echo -e "${PRINT_RED}$@${PRINT_NC}"
+}
+
+check_bin() {
+    while [ $# -gt 0 ]; do
+        which "$1" 1>/dev/null 2>&1
+        if [ ! $? -eq 0 ]; then
+            print_error "$1 not found in \$PATH"
+            all_good=0
+        fi
+        shift
+    done
+}
+
+enter_dir() {
+    if [ "$DEBUG" == "1" ]; then
+        echo -e "${PRINT_RED}DBG:${PRINT_NC} Enter $1"
+    fi
+    pushd "$1" 1>/dev/null 2>&1
+}
+
+leave_dir() {
+    if [ "$DEBUG" == "1" ]; then
+        echo -e "${PRINT_RED}DBG:${PRINT_NC} Leave $1"
+    fi
+    popd 1>/dev/null 2>&1
+}
+
+handle_repository() {
+    local main_remote="$1"
+    local main_branch="$2"
+    local repository="$3"
+    local old_sha1=
+    local new_sha1=
+    local lines_changed=
+    local update_branch=
+
+    if [ ! -d "$repository" ]; then
+        print_error "Skipping $repository (dir doesn't exist?)"
+        return
+    fi
+
+    if [ ! -d "$repository"/.git ]; then
+        print_error "Skipping $repository (dir is not git repo?)"
+        return
+    fi
+
+    enter_dir "$repository"
+
+        if [ "$(git submodule | grep droid-configs-device)" == "" ]; then
+            print_error "Skipping $repository (droid-configs-device submodule is not initialized)"
+            leave_dir "$repository"
+            return
+        fi
+
+        # Both main repo and submodule are handled
+        lines_changed="$(git diff | wc -l)"
+        if [ "$lines_changed" -gt 0 ]; then
+            print_error "$repository contains local changes, skipping."
+            leave_dir "$repository"
+            return
+        fi
+
+        # Make sure we are in latest commit
+        git checkout $main_branch
+        git fetch $main_remote
+        git merge $main_remote/$main_branch
+        git submodule update
+
+        old_sha1="$(git submodule | awk '{ print $1 }')"
+
+        update_branch="update_submodule_$(date +%s)"
+        git checkout -b $update_branch
+
+        enter_dir "droid-configs-device"
+
+            temp_tag="update_submodule_$(date +%s)"
+            temp_commit="$(tempfile)"
+            git fetch origin
+            git tag $temp_tag
+            git checkout master
+            git merge origin/master
+            echo "REMOVE THIS LINE! (this commit is for $repository)" >> "$temp_commit"
+            echo -e "Update submodule.\n" >> "$temp_commit"
+            # This is the beef, create comment lines from submodule commits
+            git log --no-merges --reverse ${temp_tag}.. | grep -e '\[.*\].*' | sed -e 's/^[ \t]*//' >> "$temp_commit"
+            git tag -d $temp_tag
+
+        leave_dir "droid-configs-device"
+
+        new_sha1="$(git submodule | awk '{ print $1 }')"
+
+        if [ "$old_sha1" == "$new_sha1" ]; then
+            echo "No changes in $repository submodule."
+            git checkout $main_branch
+            git branch -D $update_branch
+            leave_dir "$repository"
+            return
+        fi
+
+        git add droid-configs-device
+        git commit -t "$temp_commit"
+        rm -f "$temp_commit"
+
+    leave_dir "$repository"
+}
+
+check_bin git tempfile awk grep sed
+if [ ! $all_good -eq 1 ]; then
+    echo "Required bits missing. Abort."
+    exit 1
+fi
+
+while [ $# -gt 0 ]; do
+    case $1 in
+        -h|--help)
+            echo "Usage: $(basename $0) [OPTION] <repositories>"
+            echo ""
+            echo "Update droid-configs-device (repository with submodule) style repositories'"
+            echo "submodule to latest upstream and generate changelog for the submodule update"
+            echo "commit."
+            echo ""
+            echo "  -h, --help      This help."
+            echo "  -b, --branch    Set main remote for updates."
+            echo "  -m, --remote    Set main branch for updates."
+            echo "                    These switches set the branch or remote to the value for"
+            echo "                    all updates after. For example:"
+            echo "                      $(basename $0) dev1 -b devel dev2"
+            echo "                    would handle dev1 update against branch master and dev2"
+            echo "                    update against branch devel."
+            echo ""
+            echo "                    Defaults: remote=$remote branch=$branch"
+            echo ""
+            exit 0
+            ;;
+        -v|--version)
+            echo "$(basename $0) v$script_version"
+            exit 0
+            ;;
+        -b|--branch)
+            shift
+            branch=$1
+            echo "Setting main branch to $branch for future updates."
+            ;;
+        -r|--remote)
+            shift
+            remote=$1
+            echo "Setting main remote to $remote for future updates."
+            ;;
+        -*)
+            echo "Unknown switch '$1'"
+            exit 1
+            ;;
+        *)
+            handle_repository $remote $branch $1
+            ;;
+    esac
+    shift
+done
