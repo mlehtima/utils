@@ -1,6 +1,6 @@
 #!/bin/bash
 
-script_version=1
+script_version=2
 
 PRINT_RED='\033[0;31m'
 PRINT_NC='\033[0m'
@@ -45,7 +45,9 @@ handle_repository() {
     local old_sha1=
     local new_sha1=
     local lines_changed=
+    local current_branch=
     local update_branch=
+    local submodule_name=
 
     if [ ! -d "$repository" ]; then
         print_error "Skipping $repository (dir doesn't exist?)"
@@ -59,8 +61,9 @@ handle_repository() {
 
     enter_dir "$repository"
 
-        if [ "$(git submodule | grep droid-configs-device)" == "" ]; then
-            print_error "Skipping $repository (droid-configs-device submodule is not initialized)"
+        submodule_name="$(git submodule | awk '{ print $2 }')"
+        if [ "$submodule_name" == "" ]; then
+            print_error "Skipping $repository (submodule is not initialized)"
             leave_dir "$repository"
             return
         fi
@@ -73,18 +76,22 @@ handle_repository() {
             return
         fi
 
+        current_branch="$(git branch | grep -e '^\*' | awk '{ print $2 }')"
+        update_branch="update_submodule_$(date +%s)"
+
         # Make sure we are in latest commit
-        git checkout $main_branch
         git fetch $main_remote
-        git merge $main_remote/$main_branch
+        git checkout remotes/$main_remote/$main_branch -b $update_branch
+        if [ ! $? -eq 0 ]; then
+            print_error "Cannot switch to $update_branch (tracking remotes/$main_remote/$main_branch)"
+            leave_dir "$repository"
+            return
+        fi
         git submodule update
 
         old_sha1="$(git submodule | awk '{ print $1 }')"
 
-        update_branch="update_submodule_$(date +%s)"
-        git checkout -b $update_branch
-
-        enter_dir "droid-configs-device"
+        enter_dir "$submodule_name"
 
             temp_tag="update_submodule_$(date +%s)"
             temp_commit="$(tempfile)"
@@ -98,19 +105,20 @@ handle_repository() {
             git log --no-merges --reverse ${temp_tag}.. | grep -e '\[.*\].*' | sed -e 's/^[ \t]*//' >> "$temp_commit"
             git tag -d $temp_tag
 
-        leave_dir "droid-configs-device"
+        leave_dir "$submodule_name"
 
         new_sha1="$(git submodule | awk '{ print $1 }')"
 
         if [ "$old_sha1" == "$new_sha1" ]; then
             echo "No changes in $repository submodule."
-            git checkout $main_branch
+            git checkout $current_branch
+            git submodule update
             git branch -D $update_branch
             leave_dir "$repository"
             return
         fi
 
-        git add droid-configs-device
+        git add $submodule_name
         git commit -t "$temp_commit"
         rm -f "$temp_commit"
 
@@ -128,7 +136,7 @@ while [ $# -gt 0 ]; do
         -h|--help)
             echo "Usage: $(basename $0) [OPTION] <repositories>"
             echo ""
-            echo "Update droid-configs-device (repository with submodule) style repositories'"
+            echo "Update droid-{hal,configs}-device (repository with submodule) style repositories'"
             echo "submodule to latest upstream and generate changelog for the submodule update"
             echo "commit."
             echo ""
