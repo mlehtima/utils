@@ -1,0 +1,24 @@
+_update-submodule()
+{
+    local cur opts
+    _init_completion -s || return
+
+    COMPREPLY=()
+    cur="${COMP_WORDS[COMP_CWORD]}"
+
+    opts="$(update-submodule --autocomplete)"
+
+    case "${cur}" in
+        -*)
+            COMPREPLY=($(compgen -W "${opts}" -- ${cur}))
+            return 0
+            ;;
+        *)
+        ;;
+    esac
+
+    _filedir -d
+
+    return 0
+}
+complete -F _update-submodule update-submodule
