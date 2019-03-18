@@ -3,21 +3,21 @@
 SCRIPTPATH="$(dirname "`readlink -f $0`")"
 source "$SCRIPTPATH/common.sh" || exit 1
 
+expect_common_version 1
 need_binaries scp ssh
 load_config
 check_config IGNORE_PACKAGES="-devel -tests -doc" INSTALL_USER="root" INSTALL_HOST="192.168.2.15"
 
-script_version="1"
+SCRIPT_VERSION="2"
 current_dir="$PWD"
 rpms_dir=
 to_copy=
 to_install=
 install_opts=
-wildcards=$@
-remote="$INSTALL_USER@$INSTALL_HOST"
+wildcards=
 
 print_usage() {
-    echo "$(basename $0) v$script_version"
+    echo "$(basename $0) v$SCRIPT_VERSION"
     echo ""
     echo "  Configuration can be saved to config file to avoid using arguments,"
     echo "  in $COMMON_CONFIG_LOCATION"
@@ -33,42 +33,19 @@ print_usage() {
     echo "                            package name, so for example ignore value \"devel\" will"
     echo "                            match foo-devel-0.1.rpm."
     echo "                              current IGNORE_PACKAGES=\"$IGNORE_PACKAGES\""
+    exit 0
 }
 
-while [ $# -gt 0 ]; do
-    case "$1" in
-        --help)
-            print_usage
-            exit 0
-            ;;
-        -h|--host)
-            shift
-            if [ $# -lt 1 ]; then
-                echo "Parameter missing for host."
-                exit 1
-            fi
-            INSTALL_HOST="$1"
-            ;;
-        -u|--user)
-            shift
-            if [ $# -lt 1 ]; then
-                echo "Parameter missing for user."
-                exit 1
-            fi
-            INSTALL_USER="$1"
-            ;;
-        -i|--ignore)
-            shift
-            if [ $# -lt 1 ]; then
-                echo "Parameter missing for ignore."
-                exit 1
-            fi
-            IGNORE_PACKAGES="$1"
-            ;;
-    esac
+handle_options \
+    "default:   handle_options_store_to = wildcards   " \
+    "  ,--help,     0,  print_usage                   " \
+    "-h,--host,     1,  INSTALL_HOST                  " \
+    "-u,--user,     1,  INSTALL_USER                  " \
+    "-i,--ignore,   1,  IGNORE_PACKAGES               " \
+    ---                                                 \
+    "$@"
 
-    shift
-done
+remote="$INSTALL_USER@$INSTALL_HOST"
 
 # search rpm output directory...
 while [ "$PWD" != "/" ]; do
