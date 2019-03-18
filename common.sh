@@ -14,6 +14,9 @@
 # Have symlink in $HOME/bin pointing to your script do_something.sh
 #
 
+# Increase this when functionality changes
+COMMON_VERSION=1
+
 COMMON_CONFIG_LOCATION="$HOME/.config/$(basename $0).config"
 
 # Args: space separated list of binaries that
@@ -129,4 +132,280 @@ load_config() {
 # Exit with 4 if file not found.
 need_config() {
     need_config_absolute "$COMMON_CONFIG_LOCATION"
+}
+
+# handle_options: Handle script arguments
+#
+# Common handlers:
+#  - default        Called for every argument in the command line if it is not a switch
+#  - error          Called if unknown switch is encountered (has default handler)
+#  - missing        Called if switch is missing an argument (has default handler)
+#  - autocomplete   Called for --autocomplete with defined switches (has default handler)
+#
+# Common options:
+#  - min-arguments  Minimum number of command line arguments (default 0)
+#
+# Switch definition line:
+#  -[short],--[long],[argument],[function to call or variable to store argument]
+#
+# [Short] and [long] options for the switch, [argument] can be 0 or 1, defining
+# if the switch should have an argument. If the [argument] is 1 and [variable] is defined
+# then the variable is defined with value 1. If function is defined, then the
+# function is called when the switch is found, if the switch has [argument] as 1 then
+# the function shall have the argument passed to it.
+#
+# After definition of switches pass separator "---" and command line "$@" to the function.
+#
+# Example
+#
+# handle_options \
+#     "default:  handle_default                                   " \
+#     "error:    handle_error                                     " \
+#     "  ,  --only-long-option, 0,  function_to_call_if_exists    " \
+#     "-h,  ,                   0,  print_help                    " \
+#     "-V,  --verbose,          1,  where_parameter_is_stored     " \
+#     ---                                                         " \
+#     "$@"
+#
+
+_handle_options_error_default() {
+    echo "Unknown option '$@'." 1>&2
+    exit 1
+}
+
+_handle_options_missing_default() {
+    if [ $# -gt 0 ]; then
+        echo "Argument missing for option '$1'" 1>&2
+    else
+        echo "Arguments missing." 1>&2
+    fi
+    exit 2
+}
+
+_handle_options_autocomplete_default() {
+    echo -n "$@"
+}
+
+_handle_options_error() {
+    local __func=$1
+    shift
+    $__func "$@"
+}
+
+_handle_options_test_func() {
+    declare -F $1 1>/dev/null
+    if [ ! $? -eq 0 ]; then
+        echo "Internal error: Required function $1() not defined." 1>&2
+        exit 60
+    fi
+}
+
+handle_options() {
+    declare -A __handle_opt_short
+    declare -A __handle_opt_long
+    declare -A __handle_opt_arg
+    declare -A __handle_opt_func
+    declare -A __handle_opt_default
+
+    local __handle_opt_default_func=
+    local __handle_opt_default_func_param=
+    local __handle_opt_error_func=_handle_options_error_default
+    local __handle_opt_missing_func=_handle_options_missing_default
+    local __handle_opt_autocomplete_func=_handle_options_autocomplete_default
+
+    declare -i __switch_count=0
+    declare -i __arg_count=0
+    declare -i __handle_switches=1
+    declare -i __min_args=0
+
+    local __line=
+
+    # Handle configuration
+
+    while [ $# -gt 0 ]; do
+        # Normalize line (remove whitespace)
+        __line="${1//[[:space:]]}"
+
+        if [ "$__line" == "---" ]; then
+            shift
+            break
+        fi
+
+        case "$__line" in
+            min-arguments:*)
+                __min_args=${__line#min-arguments:}
+                shift
+                continue
+                ;;
+            default:*)
+                if [[ "$__line" =~ "=" ]]; then
+                    local __split_func=${__line#default:}
+                    __handle_opt_default_func=${__split_func%=*}
+                    __handle_opt_default_func_param=${__split_func#*=}
+                else
+                    __handle_opt_default_func=${__line#default:}
+                fi
+                _handle_options_test_func $__handle_opt_default_func
+                shift
+                continue
+                ;;
+            error:*)
+                __handle_opt_error_func=${__line#error:}
+                _handle_options_test_func $__handle_opt_error_func
+                shift
+                continue
+                ;;
+            missing:*)
+                __handle_opt_missing_func=${__line#missing:}
+                _handle_options_test_func $__handle_opt_missing_func
+                shift
+                continue
+                ;;
+            autocomplete:*)
+                __handle_opt_autocomplete_func=${__line#autocomplete:}
+                _handle_options_test_func $__handle_opt_autocomplete_func
+                shift
+                continue
+                ;;
+        esac
+
+        if [ "$(echo $__line | grep -o , | wc -l)" != 3 ]; then
+            echo "Internal error: Incorrect parameter count on '$__line'" 1>&2
+            exit 60
+        fi
+
+        local __opt_short=$(echo $__line | cut -d, -f1 --)
+        local __opt_long=$(echo $__line | cut -d, -f2 --)
+        local __opt_arg=$(echo $__line | cut -d, -f3 --)
+        local __opt_function="$(echo $__line | cut -d, -f4 --)"
+
+        ((++__switch_count))
+
+        if [ ! -z "$__opt_short" ]; then
+            __handle_opt_short+=( [$__opt_short]=$__switch_count )
+        fi
+        if [ ! -z "$__opt_long" ]; then
+            __handle_opt_long+=( [$__opt_long]=$__switch_count )
+        fi
+        __handle_opt_arg+=( [$__switch_count]=$__opt_arg )
+        __handle_opt_func+=( [$__switch_count]=$__opt_function )
+        shift
+    done
+
+    # Handle command line
+
+    while [ $# -gt 0 ]; do
+        declare -i __found=0
+
+        case "$1" in
+            --autocomplete)
+                $__handle_opt_autocomplete_func -v --version ${!__handle_opt_short[@]} ${!__handle_opt_long[@]}
+                exit 0
+                ;;
+            -v|--version)
+                if [ -z "$SCRIPT_VERSION" ]; then
+                    SCRIPT_VERSION="(undefined)"
+                fi
+                echo "$(basename $0) v$SCRIPT_VERSION"
+                exit 0
+                ;;
+            *)
+                if [ $__handle_switches -eq 1 ]; then
+                    case "$1" in
+                        --*)
+                            if [ "$1" == "--" ]; then
+                                __handle_switches=0
+                                shift
+                                continue
+                            fi
+
+                            if [ -z "${__handle_opt_long[$1]}" ]; then
+                                _handle_options_error $__handle_opt_error_func $1
+                            else
+                                __found=${__handle_opt_long[$1]}
+                            fi
+                            ;;
+                        -*)
+                            if [ -z "${__handle_opt_short[$1]}" ]; then
+                                _handle_options_error $__handle_opt_error_func $1
+                            else
+                                __found=${__handle_opt_short[$1]}
+                            fi
+                            ;;
+                    esac
+                fi
+
+                if [ $__found -eq 0 ]; then
+                    ((++__arg_count))
+                    if [ ! -z "${__handle_opt_default_func}" ]; then
+                        __handle_opt_default+=( [$__arg_count]="$1" )
+                        shift
+                        continue
+                    fi
+                fi
+                ;;
+        esac
+
+        if [ $__found -gt 0 ]; then
+            local __func=${__handle_opt_func[$__found]}
+            local __arg=
+
+            if [ "${__handle_opt_arg[$__found]}" == "1" ]; then
+                if [ $# -lt 2 ]; then
+                    _handle_options_error $__handle_opt_missing_func $1
+                fi
+                shift
+                __arg="$1"
+            fi
+
+            declare -F $__func 1>/dev/null
+            if [ $? -eq 0 ]; then
+                $__func $__arg
+            elif [ ! -z "$__arg" ]; then
+                eval "${__func}=\"$__arg\""
+            else
+                eval "${__func}=1"
+            fi
+        fi
+
+        shift
+    done
+
+    # Handle normal arguments (not switches)
+
+    if [ $__arg_count -lt $__min_args ]; then
+        _handle_options_error $__handle_opt_missing_func
+    fi
+
+    if [ $__arg_count -gt 0 ]; then
+        if [ ! -z "${__handle_opt_default_func}" ]; then
+            for __i in $(seq $__arg_count); do
+                ${__handle_opt_default_func} $__handle_opt_default_func_param "${__handle_opt_default[$__i]}"
+            done
+        fi
+    fi
+}
+
+# Common helpers
+handle_options_store_to() {
+    local __target=$1
+    local __string=
+    local __pad=" "
+    shift
+    eval __string=\$$__target
+    if [ -z "$__string" ]; then
+        __pad=""
+    fi
+    eval $__target="\"$__string$__pad$@\""
+}
+
+expect_common_version() {
+    if [ $1 -gt $COMMON_VERSION ]; then
+        echo "Script expecting version $1 while common.sh is version $COMMON_VERSION. Abort." 1>&2
+        exit 100
+    fi
+
+    if [ $1 -lt $COMMON_VERSION ]; then
+        echo "Warning: common.sh is version $COMMON_VERSION and script expects version $1." 1>&2
+    fi
 }
