@@ -56,7 +56,7 @@ def print_tasks(clear=False, print_empty=False):
         for idno, state, full_path, cmd in tasks:
             run_path = ''.join(full_path.split("/")[-1:])
             if len(run_path) > 12:
-                run_path = run_path[:10] + ".."
+                run_path = ".." + run_path[-10:]
             running = " "
             if state == STATE_RUNNING:
                 running = "*"
