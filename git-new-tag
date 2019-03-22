@@ -1,0 +1,112 @@
+#!/bin/bash
+
+TAG_MSG_MSG=
+TAG_ANNOTATE=
+
+if [ "$1" == "--autocomplete" ]; then
+    echo -e "-1\n--major\n-2\n--minor\n-3\n--micro\n-g\n--git\n-m\n--message\n-a\n--annotate"
+    exit 0
+fi
+
+current_full="$(git describe --tags)"
+if [ ! $? -eq 0 ]; then
+    exit 1
+fi
+
+current_prefix=
+if [[ "$current_full" =~ '/' ]]; then
+    current_prefix=${current_full%/*}/
+fi
+
+current_git=
+if [[ "$current_full" =~ '+git' ]]; then
+    current_git=${current_full#*+git}
+fi
+
+current=${current_full#$current_prefix}
+current=${current%+git$current_git}
+
+current_major=$(echo "$current" | cut -d. -f1)
+current_minor=$(echo "$current" | cut -d. -f2)
+current_micro=$(echo "$current" | cut -d. -f3)
+
+parts=$(echo "$current_tag" | grep -o '\.' | wc -l)
+
+#echo "full '$current_full' ($parts) prefix '$current_prefix' major '$current_major' minor '$current_minor' micro '$current_micor' git '$current_git'"
+
+while [ $# -gt 0 ]; do
+    case "$1" in
+        -1|--major)
+            ((++current_major))
+            if [ ! -z "$current_minor" ]; then
+                current_minor=0
+            fi
+            if [ ! -z "$current_micro" ]; then
+                current_micro=0
+            fi
+            if [ ! -z "$current_git" ]; then
+                current_git=1
+            fi
+            ;;
+        -2|--minor)
+            ((++current_minor))
+            if [ ! -z "$current_micro" ]; then
+                current_micro=0
+            fi
+            if [ ! -z "$current_git" ]; then
+                current_git=1
+            fi
+            ;;
+        -3|--micro)
+            ((++current_micro))
+            if [ ! -z "$current_git" ]; then
+                current_git=1
+            fi
+            ;;
+        -g|--git)
+            ((++current_git))
+            ;;
+        -m|--message)
+            shift
+            TAG_MSG_MSG="$1"
+            TAG_ANNOTATE="-a"
+            ;;
+        -a|--annotate)
+            TAG_ANNOTATE="-a"
+            ;;
+    esac
+    shift
+done
+
+new_tag=$current_prefix
+new_tag=$new_tag$current_major
+if [ ! -z "$current_minor" ]; then
+    new_tag=$new_tag.$current_minor
+fi
+if [ ! -z "$current_micro" ]; then
+    new_tag=$new_tag.$current_micro
+fi
+if [ ! -z "$current_git" ]; then
+    new_tag=$new_tag+git$current_git
+fi
+
+echo "Previous tag: $current_full"
+echo "New tag: $new_tag"
+if [ ! -z "$TAG_ANNOTATE" ]; then
+    echo "Annotated."
+fi
+if [ ! -z "$TAG_MSG_MSG" ]; then
+    echo "Message: $TAG_MSG_MSG"
+fi
+
+echo -n "Create? [Y/n]"
+read ask
+if [[ "$ask" == "n" || "$ask" == "N" ]]; then
+    exit 0
+fi
+
+if [ -z "$TAG_MSG_MSG" ]; then
+    git tag $TAG_ANNOTATE "$new_tag"
+else
+    git tag $TAG_ANNOTATE -m "$TAG_MSG_MSG" "$new_tag"
+fi
