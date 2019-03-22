@@ -3,6 +3,8 @@
 SCRIPTPATH="$(dirname "`readlink -f $0`")"
 source "$SCRIPTPATH/common.sh" || exit 1
 
+SCRIPT_VERSION=2
+expect_common_version 1
 load_config
 check_config ICVIM_OPEN="gvim -f"
 check_config ICVIM_COMPILE_C="gcc -Wall -std=c99"
@@ -43,43 +45,39 @@ edit_file() {
 }
 
 icvim_usage() {
+    if [ $# -gt 0 ]; then
+        echo "Value missing for $1"
+        exit 1
+    fi
     echo -n "Usage: $(basename $0) [flags] <filename.{"
     for ftype in "${!compiler_cmd[@]}"; do
         echo -n "$ftype,"
     done
     echo "}>"
-}
-
-if [ $# -lt 1 ]; then
-    icvim_usage
-    exit 1
-fi
-
-if [[ "$1" == "-h" || "$1" == "--help" ]]; then
-    icvim_usage
     exit 0
-fi
+}
 
 filename=""
 compflags=""
 compargs=""
 
-while [ $# -gt 0 ]; do
-    case "$1" in
-        -*)
-            if [ "$1" == "-a" ]; then
-                shift
-                compargs="$compargs $1"
-            else
-                compflags="$compflags $1"
-            fi
-            ;;
-        *)
-            filename="$1"
-            ;;
-    esac
-    shift
-done
+fill_compargs() {
+    compargs="$compargs $@"
+}
+
+fill_compflags() {
+    compflags="$compflags $@"
+}
+
+handle_options \
+    "min-arguments: 1                                 " \
+    "default:       handle_options_store_to=filename  " \
+    "missing:       icvim_usage                       " \
+    "-h,    --help,     0,  icvim_usage               " \
+    "-a,    --arg,      1,  fill_compargs             " \
+    "-f,    --flags,    1,  fill_compflags            " \
+    ---                                                 \
+    "$@"
 
 if [ -d "$filename" ]; then
     echo "Argument must be file."
