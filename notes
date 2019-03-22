@@ -3,6 +3,8 @@
 SCRIPTPATH="$(dirname "`readlink -f $0`")"
 source "$SCRIPTPATH/common.sh" || exit 1
 
+SCRIPT_VERSION=3
+expect_common_version 1
 load_config
 check_config NOTEDIR="$HOME/notes" DOCDIR="$HOME/.vim/doc"
 need_binaries vim grep sed tr
@@ -11,7 +13,7 @@ tag_lookup="personal-notes"
 
 function populate_notes {
     topic="$1"
-    filename="$2.txt"
+    filename="$topic.txt"
     cat > "$NOTEDIR/$filename" << EOF
 " vim: filetype=help foldmethod=marker foldmarker=<<<,>>> modifiable noreadonly
 
@@ -29,42 +31,38 @@ if [ ! -d "$NOTEDIR" ]; then
     populate_notes "$tag_lookup" "notes"
 fi
 
-case "$1" in
-    --autocomplete)
-        search="[a-zA-Z0-9_-]*"
-        if [ $# -gt 1 ]; then
-            search="${2}${search}"
-        fi
-        grep -r -h -o -i -e "\*${search}\*" "$NOTEDIR"/* | sed -e 's/\*//g' | tr '[A-Z]' '[a-z]' | tr '\n' ' '
-        exit $?
-        ;;
+handle_topics() {
+    search="[a-zA-Z0-9_-]*"
+    grep -r -h -o -i -e "\*${search}\*" "$NOTEDIR"/* | sed -e 's/\*//g' | tr '[A-Z]' '[a-z]' | tr '\n' ' '
+    echo ""
+    exit $?
+}
 
-    --new)
-        if [ ! $# -gt 1 ]; then
-            echo "missing new note file"
-            exit 1
-        fi
-        if [ "$(dirname "$2")" != "." ]; then
-            mkdir -p "$NOTEDIR/$(dirname "$2")"
-        fi
-        tag_lookup="$(basename "$2")"
-        populate_notes "$tag_lookup" "$2"
-        ;;
+handle_new() {
+    tag_lookup="$(basename "$1" .txt)"
+    if [ ! -e "$NOTEDIR/$tag_lookup.txt" ]; then
+        populate_notes "$tag_lookup"
+    fi
+}
 
-    *)
-        if [ $# -gt 0 ]; then
-            single_tag=$1
-            search_hits=$(grep -r -i -e "\*${single_tag}.*\*" "$NOTEDIR"/* | wc -l)
-            if [ $search_hits -lt 1 ]; then
-                echo "no tags with query '$single_tag'"
-                exit 1
-            elif [ $search_hits -gt 1 ]; then
-                echo "ambiguous query, matches $(notes --autocomplete $single_tag)"
-                exit 1
-            fi
-            tag_lookup="$single_tag"
-        fi
-        ;;
-esac
+lookup_tag() {
+    single_tag=$1
+    search_hits=$(grep -r -i -e "\*${single_tag}.*\*" "$NOTEDIR"/* | wc -l)
+    if [ $search_hits -lt 1 ]; then
+        echo "no tags with query '$single_tag'"
+        exit 1
+    elif [ $search_hits -gt 1 ]; then
+        echo "ambiguous query, matches $search_hits tags"
+        exit 1
+    fi
+    tag_lookup="$single_tag"
+}
+
+handle_options \
+    "default:           lookup_tag            " \
+    "-n,--new,      1,  handle_new            " \
+    "  ,--topics,   0,  handle_topics         " \
+    ---                                         \
+    "$@"
 
 exec vim -c ":helptags $DOCDIR | h $tag_lookup | only"
