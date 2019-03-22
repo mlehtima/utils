@@ -26,9 +26,12 @@ _install-built()
     done
 
     case "${cur}" in
+        -*)
+            COMPREPLY=($(compgen -W "$(install-built --autocomplete)" -- ${cur}))
+            ;;
         *)
             COMPREPLY=($(compgen -W "$(__install-built-files $rpms_dir)" -- ${cur}))
-        ;;
+            ;;
     esac
 
     return 0
