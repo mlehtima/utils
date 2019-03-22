@@ -1,0 +1,5 @@
+source /usr/share/bash-completion/completions/git
+_git_new_tag ()
+{
+    __gitcomp_nl "$(git new-tag --autocomplete)"
+}
