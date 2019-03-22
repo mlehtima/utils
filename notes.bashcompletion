@@ -10,12 +10,12 @@ _notes()
 
     case "${cur}" in
         -*)
-            COMPREPLY=($(compgen -W "${opts}" -- ${cur}))
+            COMPREPLY=($(compgen -W "$(notes --autocomplete)" -- ${cur}))
             return 0
             ;;
     esac
 
-    local strings="$(notes --autocomplete "${cur}")"
+    local strings="$(notes --topics)"
     COMPREPLY=( $(compgen -W "${strings}" -- "${cur}") )
 
     return 0
