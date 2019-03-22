@@ -8,7 +8,7 @@ if [ "$1" == "--autocomplete" ]; then
     exit 0
 fi
 
-current_full="$(git describe --tags)"
+current_full="$(git describe --tags --abbrev=0)"
 if [ ! $? -eq 0 ]; then
     exit 1
 fi
@@ -88,6 +88,11 @@ if [ ! -z "$current_micro" ]; then
 fi
 if [ ! -z "$current_git" ]; then
     new_tag=$new_tag+git$current_git
+fi
+
+if [ "$current_full" == "$new_tag" ]; then
+    echo "No changes to tag $current_full"
+    exit 1
 fi
 
 echo "Previous tag: $current_full"
