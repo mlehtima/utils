@@ -4,11 +4,11 @@ SCRIPTPATH="$(dirname "`readlink -f $0`")"
 source "$SCRIPTPATH/common.sh" || exit 1
 
 expect_common_version 1
-need_binaries scp ssh
+need_binaries scp ssh rpm
 load_config
 check_config IGNORE_PACKAGES="-devel -tests -doc" INSTALL_USER="root" INSTALL_HOST="192.168.2.15"
 
-SCRIPT_VERSION="2"
+SCRIPT_VERSION="3"
 current_dir="$PWD"
 rpms_dir=
 to_copy=
@@ -21,6 +21,9 @@ print_usage() {
     echo ""
     echo "  Configuration can be saved to config file to avoid using arguments,"
     echo "  in $COMMON_CONFIG_LOCATION"
+    echo ""
+    echo "  By default all packages that are found in RPMS directory that are installed"
+    echo "  in the target device are updated."
     echo ""
     echo "  --help                  Print this help"
     echo "  -h|--host <value>       Which host to install to"
@@ -95,7 +98,22 @@ for package in "$rpms_dir/"*.rpm; do
     fi
 done
 
-if [ "$to_copy" == "" ]; then
+if [ -z "$wildcards" ]; then
+    check_installed="$to_copy"
+    to_copy=
+    to_install=
+    for package in $check_installed; do
+        p="$(rpm -qp $package --qf '%{NAME}')"
+        ssh -q $remote rpm -qi "$p" >/dev/null
+        if [ $? -eq 0 ]; then
+            fname="$(basename $package)"
+            to_copy="$to_copy $package"
+            to_install="$to_install $fname"
+        fi
+    done
+fi
+
+if [ -z "$to_copy" ]; then
     echo "No files to install."
     exit 1
 fi
