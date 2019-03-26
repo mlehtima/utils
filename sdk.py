@@ -4,7 +4,6 @@ import dbus
 import dbus.mainloop.glib
 import os
 import sys
-import signal
 import distutils.spawn
 from subprocess import Popen, PIPE, STDOUT
 import ConfigParser
