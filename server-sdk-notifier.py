@@ -5,7 +5,6 @@ import dbus
 import dbus.service
 import dbus.mainloop.glib
 
-from dbus.mainloop.glib import DBusGMainLoop
 from gi.repository import GObject as gobject
 
 TASK_DONE = 4
