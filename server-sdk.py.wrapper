@@ -2,11 +2,20 @@
 
 session_bus_file="/tmp/server-sdk.py.wrapper.u6j5hsfthftg4"
 
+if [ -z "$SFOS_SDK_ROOT" ]; then
+    SFOS_SDK_ROOT=/srv/mer/sdks/sdk
+fi
+
 if [ ! -d /parentroot ]; then
     # Try to run this script inside sdk
+    chroot_cmd="$SFOS_SDK_ROOT/mer-sdk-chroot"
+    if [ ! -e "$chroot_cmd" ]; then
+        echo "Could not find sdk executable $chroot_cmd"
+        exit 1
+    fi
     echo "Starting server-sdk.py inside mer sdk..."
     echo "DBUS_SESSION_BUS_ADDRESS=$DBUS_SESSION_BUS_ADDRESS" > "$session_bus_file"
-    exec /srv/mer/sdks/sdk/mer-sdk-chroot server-sdk
+    exec $SFOS_SDK_ROOT/mer-sdk-chroot server-sdk
     exit 0
 else
     source "/parentroot$session_bus_file"
