@@ -145,6 +145,33 @@ def set_default_target(name):
 def cancel_all():
     method("CancelAll")()
 
+def sb2_targets(ignore=None):
+    targets = []
+    sb2 = os.path.expanduser("~/.scratchbox2")
+    files = os.listdir(sb2)
+    for f in files:
+        if os.path.isdir(os.path.join(sb2, f)):
+            if ignore and ignore == f:
+                continue
+            targets.append(f)
+    return targets
+
+def sb2_default_target():
+    if not distutils.spawn.find_executable("dmenu"):
+        print(get_default_target())
+        sys.exit(0)
+
+    default_target = get_default_target()
+    targets = sb2_targets(ignore=default_target)
+    targets.sort()
+    if default_target:
+        targets.insert(0, default_target)
+    if len(targets) > 0:
+        p = Popen(["dmenu", "-fn", "Droid Sans Mono-17", "-p", "set default sb2 target:"], stdin=PIPE, stdout=PIPE, stderr=STDOUT)
+        ret = p.communicate(input="\n".join(targets))[0]
+        if ret:
+            set_default_target(ret.split("\n")[0])
+
 def main():
     cmd = ''.join(sys.argv[0].split("-")[-1:])
 
@@ -171,26 +198,20 @@ def main():
 
     elif cmd == "default_target":
         if len(sys.argv) > 1:
-            set_default_target(sys.argv[1])
-        else:
-            if distutils.spawn.find_executable("dmenu"):
-                targets = []
-                default_target = get_default_target()
-                sb2 = os.path.expanduser("~/.scratchbox2")
-                files = os.listdir(sb2)
-                for f in files:
-                    if os.path.isdir(os.path.join(sb2, f)) and default_target != f:
-                        targets.append(f)
-                targets.sort()
-                if default_target:
-                    targets.insert(0, default_target)
-                if len(targets) > 0:
-                    p = Popen(["dmenu", "-fn", "Droid Sans Mono-17", "-p", "set default sb2 target:"], stdin=PIPE, stdout=PIPE, stderr=STDOUT)
-                    ret = p.communicate(input="\n".join(targets))[0]
-                    if ret:
-                        set_default_target(ret.split("\n")[0])
+            arg = sys.argv[1]
+            if arg == "--list":
+                for p in sb2_targets():
+                    print(p)
+            elif arg == "--current":
+                print(get_default_target())
             else:
-                print get_default_target()
+                if arg in sb2_targets():
+                    set_default_target(arg)
+                else:
+                    print("no target '%s' found." % arg)
+                    sys.exit(1)
+        else:
+            sb2_default_target()
 
     elif cmd == "install":
         if len(sys.argv) > 1:
