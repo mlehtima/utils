@@ -8,6 +8,7 @@ import re
 import sys
 import time
 import Queue
+import traceback
 
 import dbus
 import dbus.service
@@ -248,8 +249,9 @@ class TaskManager():
         try:
             if len(self._tasks) == 0:
                 task.start()
-        except:
-            self._printer.println("[\x1b[32m%s\x1b[39m] %s  \x1b[31mFailed to create task thread\x1b[39m" % (task.pwd(), task.cmdline()))
+        except Exception as e:
+            self._printer.println("[\x1b[32m%s\x1b[39m] %s  \x1b[31mFailed to create task thread: %s\x1b[39m" % (task.pwd(), task.cmdline(), e))
+            self._printer.println(traceback.format_exc())
             self._tasks_lock.release()
             return -1
 
