@@ -33,8 +33,23 @@ if [ -e "$DEFAULT_CONFIG" ]; then
     source "$DEFAULT_CONFIG"
 fi
 
+run_scripts() {
+    if [ -d "$EXECUTE_D" ]; then
+        for i in $(ls -1 "$EXECUTE_D" | sort); do
+            script="$EXECUTE_D/$i"
+            if [ -x "$script" ]; then
+                USE_KEY="$USE_KEY" USE_USER="$USE_USER" USE_HOST="$USE_HOST" SSH_OPT="$SSH_OPT" $script
+            fi
+        done
+    fi
+}
+
 while [ $# -gt 0 ]; do
     case "$1" in
+        --autocomplete)
+            echo "-k --key -h --host -u --user -s --scripts"
+            exit 0
+            ;;
         -k|--key)
             shift
             if [ $# -lt 1 ]; then
@@ -59,6 +74,10 @@ while [ $# -gt 0 ]; do
             fi
             USE_USER="$1"
             ;;
+        -s|--scripts)
+            run_scripts
+            exit 0
+            ;;
     esac
 
     shift
@@ -73,7 +92,7 @@ SCRIPT="upload-pubkey-$(date +%s)$RANDOM.tmp"
 SCRIPT_DATA=""
 REMOTE_SCRIPT="/home/$USE_USER/.$SCRIPT"
 
-function finish {
+finish() {
     unset SSHPASS
     unset SCRIPT_DATA
 }
@@ -100,13 +119,6 @@ fi
 echo -e "$SCRIPT_DATA" | $INPUT_PASS ssh $SSH_OPT $USE_USER@$USE_HOST "cat > $REMOTE_SCRIPT ; bash $REMOTE_SCRIPT ; grep \#PASSW $REMOTE_SCRIPT | cut -b8- | devel-su -c bash $REMOTE_SCRIPT 2>/dev/null ; rm -f $REMOTE_SCRIPT"
 
 if [ $? -eq 0 ]; then
-    if [ -d "$EXECUTE_D" ]; then
-        for i in $(ls -1 "$EXECUTE_D" | sort); do
-            script="$EXECUTE_D/$i"
-            if [ -x "$script" ]; then
-                USE_KEY="$USE_KEY" USE_USER="$USE_USER" USE_HOST="$USE_HOST" SSH_OPT="$SSH_OPT" $script
-            fi
-        done
-    fi
+    run_scripts
     echo "done."
 fi
