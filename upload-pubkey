@@ -1,5 +1,9 @@
 #!/bin/bash
 
+# v5:
+#   - Add -s|--scripts option to only run extra scripts from upload-pubkey.d
+#     directory. Add bash autocompletion support.
+#
 # v4:
 #   - Default values for variables are read from $HOME/.config/upload-pubkey
 #     file if the file exists.
@@ -17,6 +21,7 @@
 #   - use sshpass if available so that password needs to be typed only once
 #   - provide the password to devel-su from stdin to avoid visible password
 
+SCRIPT_VERSION=5
 DEFAULT_KEY="$HOME/.ssh/id_rsa.pub"
 DEFAULT_USER="nemo"
 DEFAULT_HOST="192.168.2.15"
@@ -46,8 +51,12 @@ run_scripts() {
 
 while [ $# -gt 0 ]; do
     case "$1" in
+        -v|--version)
+            echo "$(basename $0) v$SCRIPT_VERSION"
+            exit 0
+            ;;
         --autocomplete)
-            echo "-k --key -h --host -u --user -s --scripts"
+            echo "-v --version -k --key -h --host -u --user -s --scripts"
             exit 0
             ;;
         -k|--key)
