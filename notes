@@ -3,7 +3,7 @@
 SCRIPTPATH="$(dirname "`readlink -f $0`")"
 source "$SCRIPTPATH/common.sh" || exit 1
 
-SCRIPT_VERSION=3
+SCRIPT_VERSION=4
 expect_common_version 1
 load_config
 check_config NOTEDIR="$HOME/notes" DOCDIR="$HOME/.vim/doc"
@@ -11,9 +11,9 @@ need_binaries vim grep sed tr
 
 tag_lookup="personal-notes"
 
-function populate_notes {
-    topic="$1"
-    filename="$topic.txt"
+populate_notes() {
+    local topic="$1"
+    local filename="$topic.txt"
     cat > "$NOTEDIR/$filename" << EOF
 " vim: filetype=help foldmethod=marker foldmarker=<<<,>>> modifiable noreadonly
 
@@ -32,36 +32,67 @@ if [ ! -d "$NOTEDIR" ]; then
 fi
 
 handle_topics() {
-    search="[a-zA-Z0-9_-]*"
+    local search="[a-zA-Z0-9_-]*"
     grep -r -h -o -i -e "\*${search}\*" "$NOTEDIR"/* | sed -e 's/\*//g' | tr '[A-Z]' '[a-z]' | tr '\n' ' '
+    local r=$?
     echo ""
-    exit $?
+    exit $r
 }
 
 handle_new() {
-    tag_lookup="$(basename "$1" .txt)"
-    if [ ! -e "$NOTEDIR/$tag_lookup.txt" ]; then
-        populate_notes "$tag_lookup"
+    local new_file="$(basename "$1" .txt)"
+    if [ ! -e "$NOTEDIR/$new_file.txt" ]; then
+        populate_notes "$new_file"
     fi
+    lookup_tag "$new_file"
 }
 
 lookup_tag() {
-    single_tag=$1
-    search_hits=$(grep -r -i -e "\*${single_tag}.*\*" "$NOTEDIR"/* | wc -l)
-    if [ $search_hits -lt 1 ]; then
-        echo "no tags with query '$single_tag'"
+    local search=$1
+    local search_hits=$(grep -r -i -e "\*${search}.*\*" "$NOTEDIR"/* | cut -d\* -f2 | tr '\n' ' ')
+    local search_count=$(echo "$search_hits" | wc -w)
+    if [ $search_count -lt 1 ]; then
+        echo "no tags with query '$search'"
         exit 1
-    elif [ $search_hits -gt 1 ]; then
-        echo "ambiguous query, matches $search_hits tags"
+    elif [ $search_count -gt 1 ]; then
+        echo "ambiguous query '$search', matches tags $search_hits"
         exit 1
     fi
-    tag_lookup="$single_tag"
+    tag_lookup=$search_hits
+}
+
+handle_delete() {
+    local lookup="$NOTEDIR/$(basename "$1" .txt).txt"
+    if [ -f "$lookup" ]; then
+        rm -f "$lookup"
+    fi
+    exit 0
+}
+
+print_help() {
+    echo "Usage: $(basename $0) <options> [tag]"
+    echo ""
+    echo "Lookup or edit notes files. If no tag is provided default tag '$tag_lookup'"
+    echo "is used. Tag is matched with case insensitive regular expression <tag>.* and if"
+    echo "single match is found notes file with the tag is opened."
+    echo ""
+    echo "  -h, --help      This help."
+    echo "  -n, --new       Create new notes file."
+    echo "                    If notes file with the given name doesn't exist new file"
+    echo "                    is created. The topic of the notes file is set to the"
+    echo "                    argument given here but it can be changed."
+    echo "  -d, --delete    Delete notes file."
+    echo "  -t, --topics    List all topics in all notes files."
+    echo ""
+    exit 0
 }
 
 handle_options \
     "default:           lookup_tag            " \
+    "-h,--help,     0,  print_help            " \
     "-n,--new,      1,  handle_new            " \
-    "  ,--topics,   0,  handle_topics         " \
+    "-d,--delete,   1,  handle_delete         " \
+    "-t,--topics,   0,  handle_topics         " \
     ---                                         \
     "$@"
 
