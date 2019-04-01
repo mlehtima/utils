@@ -149,10 +149,11 @@ need_config() {
 #  -[short],--[long],[argument],[function to call or variable to store argument]
 #
 # [Short] and [long] options for the switch, [argument] can be 0 or 1, defining
-# if the switch should have an argument. If the [argument] is 1 and [variable] is defined
-# then the variable is defined with value 1. If function is defined, then the
-# function is called when the switch is found, if the switch has [argument] as 1 then
-# the function shall have the argument passed to it.
+# if the switch should have an argument. If the [argument] is 0 and the switch is found
+# then the variable is defined with number of how many times the switch is found in
+# command line. If [argument] is 1 then the switch value is stored to the [variable].
+# If function is defined, then the function is called when the switch is found, if
+# the switch has [argument] as 1 then the function shall have the argument passed to it.
 #
 # After definition of switches pass separator "---" and command line "$@" to the function.
 #
@@ -364,7 +365,12 @@ handle_options() {
             elif [ ! -z "$__arg" ]; then
                 eval "${__func}=\"$__arg\""
             else
-                eval "${__func}=1"
+                local __call_count=1
+                if [ ! -z "$__func" ]; then
+                    __call_count=$__func
+                    ((++__call_count))
+                fi
+                eval "$__func=$__call_count"
             fi
         fi
 
