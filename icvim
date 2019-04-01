@@ -3,13 +3,17 @@
 SCRIPTPATH="$(dirname "`readlink -f $0`")"
 source "$SCRIPTPATH/common.sh" || exit 1
 
-SCRIPT_VERSION=2
+SCRIPT_VERSION=3
 expect_common_version 1
 load_config
 check_config ICVIM_OPEN="gvim -f"
 check_config ICVIM_COMPILE_C="gcc -Wall -std=c99"
 check_config ICVIM_COMPILE_CPP="g++ -Wall"
-need_binaries cpp g++ bash inotifywait mktemp $(echo "$ICVIM_OPEN" | cut -d' ' -f1)
+need_binaries cpp g++ bash inotifywait mktemp
+declare -F "$ICVIM_OPEN" >/dev/null
+if [ $? -eq 1 ]; then
+    need_binaries $(echo "$ICVIM_OPEN" | cut -d' ' -f1)
+fi
 
 declare -A compiler_cmd
 compiler_cmd+=( ["c"]="$ICVIM_COMPILE_C" )
@@ -76,6 +80,7 @@ handle_options \
     "-h,    --help,     0,  icvim_usage               " \
     "-a,    --arg,      1,  fill_compargs             " \
     "-f,    --flags,    1,  fill_compflags            " \
+    "-t,    --type,     1,  suffix                    " \
     ---                                                 \
     "$@"
 
@@ -84,7 +89,9 @@ if [ -d "$filename" ]; then
     exit 1
 fi
 
-suffix="${filename##*.}"
+if [ -z "$suffix" ]; then
+    suffix="${filename##*.}"
+fi
 if [ -z "${compiler_cmd[$suffix]}" ]; then
     echo "Unsupported suffix '$suffix'"
     exit 1
