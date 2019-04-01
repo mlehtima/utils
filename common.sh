@@ -412,6 +412,8 @@ expect_common_version() {
     fi
 
     if [ $1 -lt $COMMON_VERSION ]; then
-        echo "Warning: common.sh is version $COMMON_VERSION and script expects version $1." 1>&2
+        if [ -n "$DEBUG" ]; then
+            echo "Warning: common.sh is version $COMMON_VERSION and script expects version $1." 1>&2
+        fi
     fi
 }
