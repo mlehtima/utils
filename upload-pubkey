@@ -119,7 +119,7 @@ mkdir -p ~/.ssh
 echo \"$(cat $USE_KEY)\" >> ~/.ssh/authorized_keys
 chmod -R go-rwx ~/.ssh"
 
-if [ ! -z "$USE_SSHPASS" ]; then
+if [ -n "$USE_SSHPASS" ]; then
     INPUT_PASS="$USE_SSHPASS -e"
 else
     echo -e "\nRetype password..."
