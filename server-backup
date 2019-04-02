@@ -20,7 +20,7 @@ function check_log {
     shift
     message="$@"
 
-    if [ ! -z "$(cat $logfile)" ]; then
+    if [ -n "$(cat $logfile)" ]; then
         echo "$message:"
         cat $logfile
     fi
@@ -81,10 +81,10 @@ function backup_databases {
 }
 
 check_config GPG_RECIPIENT SSH_SERVER SSH_DIRECTORY TARGET_DIR MYSQL_CONFIG
-if [ ! -z "$DIRECTORIES" ]; then
+if [ -n "$DIRECTORIES" ]; then
     need_binaries tar pigz pv gpg ssh mktemp
 fi
-if [ ! -z "$DATABASES" ]; then
+if [ -n "$DATABASES" ]; then
     need_binaries mysqldump gpg ssh mktemp
 fi
 check_need_user
