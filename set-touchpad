@@ -5,7 +5,7 @@ TOUCHPAD_DEVICE_NAME=touchpad\ synaptics
 touchpad_id=
 for name in $TOUCHPAD_DEVICE_NAME; do
     touchpad_id=$(xinput list | grep -i "$name" | sed -e 's/.*id=\([0-9]*\).*/\1/')
-    if [ ! -z "$touchpad_id" ]; then
+    if [ -n "$touchpad_id" ]; then
         break
     fi
 done
