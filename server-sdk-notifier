@@ -23,7 +23,7 @@ while [ 1 ]; do
     fi
 
     rm -f "$NOTIFY_DIR$EVENT_FILE"
-    if [ ! -z "$BODY" ]; then
+    if [ -n "$BODY" ]; then
         notify-send -t 3000 -i $ICON "$TYPE" "$BODY"
     fi
 done
