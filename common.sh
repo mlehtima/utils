@@ -282,10 +282,10 @@ handle_options() {
 
         ((++__switch_count))
 
-        if [ ! -z "$__opt_short" ]; then
+        if [ -n "$__opt_short" ]; then
             __handle_opt_short+=( [$__opt_short]=$__switch_count )
         fi
-        if [ ! -z "$__opt_long" ]; then
+        if [ -n "$__opt_long" ]; then
             __handle_opt_long+=( [$__opt_long]=$__switch_count )
         fi
         __handle_opt_arg+=( [$__switch_count]=$__opt_arg )
@@ -338,7 +338,7 @@ handle_options() {
 
                 if [ $__found -eq 0 ]; then
                     ((++__arg_count))
-                    if [ ! -z "${__handle_opt_default_func}" ]; then
+                    if [ -n "$__handle_opt_default_func" ]; then
                         __handle_opt_default+=( [$__arg_count]="$1" )
                         shift
                         continue
@@ -362,11 +362,11 @@ handle_options() {
             declare -F $__func 1>/dev/null
             if [ $? -eq 0 ]; then
                 $__func $__arg
-            elif [ ! -z "$__arg" ]; then
+            elif [ -n "$__arg" ]; then
                 eval "${__func}=\"$__arg\""
             else
                 local __call_count=1
-                if [ ! -z "$__func" ]; then
+                if [ -n "$__func" ]; then
                     __call_count=$__func
                     ((++__call_count))
                 fi
@@ -384,7 +384,7 @@ handle_options() {
     fi
 
     if [ $__arg_count -gt 0 ]; then
-        if [ ! -z "${__handle_opt_default_func}" ]; then
+        if [ -n "$__handle_opt_default_func" ]; then
             for __i in $(seq $__arg_count); do
                 ${__handle_opt_default_func} $__handle_opt_default_func_param "${__handle_opt_default[$__i]}"
             done
