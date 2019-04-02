@@ -38,28 +38,28 @@ while [ $# -gt 0 ]; do
     case "$1" in
         -1|--major)
             ((++current_major))
-            if [ ! -z "$current_minor" ]; then
+            if [ -n "$current_minor" ]; then
                 current_minor=0
             fi
-            if [ ! -z "$current_micro" ]; then
+            if [ -n "$current_micro" ]; then
                 current_micro=0
             fi
-            if [ ! -z "$current_git" ]; then
+            if [ -n "$current_git" ]; then
                 current_git=1
             fi
             ;;
         -2|--minor)
             ((++current_minor))
-            if [ ! -z "$current_micro" ]; then
+            if [ -n "$current_micro" ]; then
                 current_micro=0
             fi
-            if [ ! -z "$current_git" ]; then
+            if [ -n "$current_git" ]; then
                 current_git=1
             fi
             ;;
         -3|--micro)
             ((++current_micro))
-            if [ ! -z "$current_git" ]; then
+            if [ -n "$current_git" ]; then
                 current_git=1
             fi
             ;;
@@ -80,13 +80,13 @@ done
 
 new_tag=$current_prefix
 new_tag=$new_tag$current_major
-if [ ! -z "$current_minor" ]; then
+if [ -n "$current_minor" ]; then
     new_tag=$new_tag.$current_minor
 fi
-if [ ! -z "$current_micro" ]; then
+if [ -n "$current_micro" ]; then
     new_tag=$new_tag.$current_micro
 fi
-if [ ! -z "$current_git" ]; then
+if [ -n "$current_git" ]; then
     new_tag=$new_tag+git$current_git
 fi
 
@@ -97,10 +97,10 @@ fi
 
 echo "Previous tag: $current_full"
 echo "New tag: $new_tag"
-if [ ! -z "$TAG_ANNOTATE" ]; then
+if [ -n "$TAG_ANNOTATE" ]; then
     echo "Annotated."
 fi
-if [ ! -z "$TAG_MSG_MSG" ]; then
+if [ -n "$TAG_MSG_MSG" ]; then
     echo "Message: $TAG_MSG_MSG"
 fi
 
