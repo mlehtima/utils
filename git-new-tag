@@ -2,9 +2,10 @@
 
 TAG_MSG_MSG=
 TAG_ANNOTATE=
+NEW_PREFIX=
 
 if [ "$1" == "--autocomplete" ]; then
-    echo -e "-1\n--major\n-2\n--minor\n-3\n--micro\n-g\n--git\n-m\n--message\n-a\n--annotate"
+    echo -e "-1\n--major\n-2\n--minor\n-3\n--micro\n-g\n--git\n-m\n--message\n-a\n--annotate\n-p\n--prefix"
     exit 0
 fi
 
@@ -74,6 +75,10 @@ while [ $# -gt 0 ]; do
         -a|--annotate)
             TAG_ANNOTATE="-a"
             ;;
+        -p|--prefix)
+            shift
+            NEW_PREFIX="$1"
+            ;;
     esac
     shift
 done
@@ -88,6 +93,9 @@ if [ -n "$current_micro" ]; then
 fi
 if [ -n "$current_git" ]; then
     new_tag=$new_tag+git$current_git
+fi
+if [ -n "$NEW_PREFIX" ]; then
+    new_tag="$NEW_PREFIX$new_tag"
 fi
 
 if [ "$current_full" == "$new_tag" ]; then
