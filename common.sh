@@ -19,6 +19,13 @@ COMMON_VERSION=1
 
 COMMON_CONFIG_LOCATION="$HOME/.config/$(basename $0).config"
 
+# Test for recent enough bash
+declare -A ___test_common_sh 2>/dev/null
+if [ ! $? -eq 0 ]; then
+    echo "$(basename $0): common.sh requires more recent bash version, abort."
+    exit 1
+fi
+
 # Args: space separated list of binaries that
 # need to be found in $PATH
 # Exits with 1 if binary not found.
