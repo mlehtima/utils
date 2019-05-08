@@ -10,8 +10,10 @@
 # autocmd FileType gitopenbuffer map <buffer> k ^<Backspace><Backspace>^
 # autocmd FileType gitopenbuffer map <buffer> q :q!<CR>
 # command! -nargs=* -complete=shellcmd G tabnew | setlocal filetype=gitopenbuffer buftype=nofile bufhidden=hide noswapfile | r !vim-grep "<args>"
+# nnoremap <C-F> :G <C-R><C-W><CR>
 #
-# It is possible to invoke vim-grep from inside vim with command :G
+# With this configuration it is possible to invoke vim-grep from inside vim with command :G
+# or by over any text under cursor with keyboard Ctrl+F
 
 SCRIPTPATH="$(dirname "`readlink -f $0`")"
 source "$SCRIPTPATH/common.sh" || exit 1
