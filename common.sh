@@ -360,7 +360,7 @@ handle_options() {
 
             if [ "${__handle_opt_arg[$__found]}" == "1" ]; then
                 if [ $# -lt 2 ]; then
-                    _handle_options_error $__handle_opt_missing_func $1
+                    _handle_options_error $__handle_opt_missing_func $__func
                 fi
                 shift
                 __arg="$1"
