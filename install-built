@@ -4,11 +4,11 @@ SCRIPTPATH="$(dirname "`readlink -f $0`")"
 source "$SCRIPTPATH/common.sh" || exit 1
 
 expect_common_version 1
-need_binaries scp ssh rpm
+need_binaries scp ssh rpm inotifywait
 load_config
 check_config IGNORE_PACKAGES="-devel -tests -doc" INSTALL_USER="root" INSTALL_HOST="192.168.2.15"
 
-SCRIPT_VERSION="3"
+SCRIPT_VERSION="4"
 current_dir="$PWD"
 rpms_dir=
 to_copy=
@@ -36,6 +36,10 @@ print_usage() {
     echo "                            package name, so for example ignore value \"devel\" will"
     echo "                            match foo-devel-0.1.rpm."
     echo "                              current IGNORE_PACKAGES=\"$IGNORE_PACKAGES\""
+    echo "  -w|--watch                Wait for existence of file and when the file is removed"
+    echo "                              execute the install. If the file doesn't exist the operation"
+    echo "                              is executed immediately."
+    echo ""
     exit 0
 }
 
@@ -45,6 +49,7 @@ handle_options \
     "-h,--host,     1,  INSTALL_HOST                  " \
     "-u,--user,     1,  INSTALL_USER                  " \
     "-i,--ignore,   1,  IGNORE_PACKAGES               " \
+    "-w,--watch,    1,  WATCH_MARKER                  " \
     ---                                                 \
     "$@"
 
@@ -58,6 +63,13 @@ while [ "$PWD" != "/" ]; do
     fi
     cd ..
 done
+
+# If watch marker file doesn't exist install is executed immediately.
+if [ -n "$WATCH_MARKER" ]; then
+    if [ -e "$WATCH_MARKER" ]; then
+        inotifywait -e delete_self -qq "$WATCH_MARKER"
+    fi
+fi
 
 cd "$current_dir"
 
