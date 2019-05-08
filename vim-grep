@@ -18,19 +18,58 @@
 SCRIPTPATH="$(dirname "`readlink -f $0`")"
 source "$SCRIPTPATH/common.sh" || exit 1
 
+SCRIPT_VERSION="1"
+expect_common_version 1
 check_config EDITOR=less
-need_binaries git grep sed mktemp $EDITOR
+need_binaries git grep sed mktemp
+
+print_usage() {
+    echo "$(basename $0) v$SCRIPT_VERSION"
+    echo ""
+    echo "  Configuration can be saved to config file to avoid using arguments,"
+    echo "  in $COMMON_CONFIG_LOCATION"
+    echo ""
+    echo "  -h|--help               Print this help"
+    echo "  -e|--editor             Override default editor used to view results"
+    echo "                            (default: $EDITOR)"
+    echo ""
+    exit 0
+}
+
+args_missing() {
+    case $1 in
+        EDITOR)
+            echo "fatal: value missing for editor"
+            exit 1      ;;
+        *)
+            echo "fatal: no pattern given. $1"
+            # same exit code as with git grep
+            exit 128    ;;
+    esac
+}
+
+handle_options \
+    "default:       handle_options_store_to = search  " \
+    "min-arguments: 1                                 " \
+    "missing:       args_missing                      " \
+    "-h,--help,     0,  print_usage                   " \
+    "-e,--editor,   1,  EDITOR                        " \
+    ---                                                 \
+    "$@"
+
+# Check editor after handling options to take override into account
+need_binaries $EDITOR
 
 result=""
 
-function print_log {
+print_log() {
     # only print when outside vim
     if [ -z "$VIMRUNTIME" ]; then
         echo $@
     fi
 }
 
-function write_output {
+write_output() {
     # write to file when outside vim
     if [ -z "$VIMRUNTIME" ]; then
         if [ -z "$result" ]; then
@@ -42,12 +81,6 @@ function write_output {
     fi
 }
 
-if [[ $# -lt 1 || "$1" == "" ]]; then
-    echo "fatal: no pattern given."
-    # same exit code as with git grep
-    exit 128
-fi
-
 git branch > /dev/null 2>&1
 if [ $? -eq 0 ]; then
     grepcommand="git grep -n"
@@ -58,9 +91,8 @@ else
 fi
 
 output="$(mktemp --tmpdir= temp.XXXXXX)"
-search="$@"
 
-function finish {
+finish() {
     if [ -e "$output" ]; then
         rm -f "$output"
     fi
