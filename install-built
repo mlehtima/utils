@@ -6,9 +6,14 @@ source "$SCRIPTPATH/common.sh" || exit 1
 expect_common_version 1
 need_binaries scp ssh rpm inotifywait
 load_config
-check_config IGNORE_PACKAGES="-devel -tests -doc" INSTALL_USER="root" INSTALL_HOST="192.168.2.15"
+check_config \
+    INSTALL_HOST="192.168.2.15" \
+    INSTALL_USER="root" \
+    IGNORE_PACKAGES="-devel -tests -doc" \
+    WATCH_FOR_FILE=0 \
+    WATCH_PATTERN="*.spec.*"
 
-SCRIPT_VERSION="4"
+SCRIPT_VERSION="5"
 current_dir="$PWD"
 rpms_dir=
 to_copy=
@@ -39,6 +44,8 @@ print_usage() {
     echo "  -w|--watch                Wait for existence of file and when the file is removed"
     echo "                              execute the install. If the file doesn't exist the operation"
     echo "                              is executed immediately."
+    echo "  -p|--pattern              File to wait for with --watch, implies --watch if that is not"
+    echo "                              defined. Default watch pattern \"$WATCH_PATTERN\""
     echo ""
     exit 0
 }
@@ -49,7 +56,8 @@ handle_options \
     "-h,--host,     1,  INSTALL_HOST                  " \
     "-u,--user,     1,  INSTALL_USER                  " \
     "-i,--ignore,   1,  IGNORE_PACKAGES               " \
-    "-w,--watch,    1,  WATCH_MARKER                  " \
+    "-w,--watch,    0,  WATCH_FOR_FILE                " \
+    "-p,--pattern,  1,  WATCH_PATTERN                 " \
     ---                                                 \
     "$@"
 
@@ -64,10 +72,15 @@ while [ "$PWD" != "/" ]; do
     cd ..
 done
 
-# If watch marker file doesn't exist install is executed immediately.
-if [ -n "$WATCH_MARKER" ]; then
-    if [ -e "$WATCH_MARKER" ]; then
-        inotifywait -e delete_self -qq "$WATCH_MARKER"
+if [ $WATCH_FOR_FILE -eq 1 ]; then
+    f="$(find rpm -name "$WATCH_PATTERN")"
+    if [ $(echo $f | wc -w) -gt 1 ]; then
+        echo "fatal: Ambiguous watch pattern, found $f"
+        exit 1
+    fi
+    if [ -e "$f" ]; then
+        echo "waiting for $f ..."
+        inotifywait -e delete_self -qq "$f"
     fi
 fi
 
