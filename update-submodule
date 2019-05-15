@@ -1,16 +1,36 @@
 #!/bin/bash
 
-script_version=2
+script_version=3
 
 PRINT_RED='\033[0;31m'
+PRINT_GREEN='\033[0;32m'
 PRINT_NC='\033[0m'
 
-branch=master
-remote=origin
+opt_force_branch=0
+opt_force_remote=0
+opt_force_submodule=0
+opt_branch=master
+opt_remote=origin
+opt_submodule=
 all_good=1
 
 print_error() {
     echo -e "${PRINT_RED}$@${PRINT_NC}"
+}
+
+print_debug() {
+    if [ "$DEBUG" == "1" ]; then
+        echo -e "${PRINT_GREEN}$@${PRINT_NC}" >&2
+    fi
+}
+
+print_normal() {
+    echo -e "${PRINT_GREEN}$@${PRINT_NC}" >&1
+}
+
+run_cmd() {
+    print_debug "$ $@"
+    $@
 }
 
 check_bin() {
@@ -25,29 +45,32 @@ check_bin() {
 }
 
 enter_dir() {
-    if [ "$DEBUG" == "1" ]; then
-        echo -e "${PRINT_RED}DBG:${PRINT_NC} Enter $1"
-    fi
+    print_debug "# Enter $1"
     pushd "$1" 1>/dev/null 2>&1
 }
 
 leave_dir() {
-    if [ "$DEBUG" == "1" ]; then
-        echo -e "${PRINT_RED}DBG:${PRINT_NC} Leave $1"
-    fi
+    print_debug "# Leave $1"
     popd 1>/dev/null 2>&1
 }
 
 handle_repository() {
-    local main_remote="$1"
-    local main_branch="$2"
-    local repository="$3"
+    local submodule_name=
+    local force_remote="$1"     ; shift
+    local use_remote="$1"       ; shift
+    local force_branch="$1"     ; shift
+    local use_branch="$1"       ; shift
+    local force_submodule="$1"  ; shift
+    if [ $force_submodule -eq 1 ]; then
+        submodule_name="$1"
+        shift
+    fi
+    local repository="$@"
     local old_sha1=
     local new_sha1=
     local lines_changed=
     local current_branch=
     local update_branch=
-    local submodule_name=
 
     if [ ! -d "$repository" ]; then
         print_error "Skipping $repository (dir doesn't exist?)"
@@ -61,8 +84,38 @@ handle_repository() {
 
     enter_dir "$repository"
 
-        submodule_name="$(git submodule | awk '{ print $2 }')"
-        if [ "$submodule_name" == "" ]; then
+        if [ -f ".git/update-submodule.conf" ]; then
+            source ".git/update-submodule.conf"
+            if [[ $force_remote -eq 0 && -n "$REMOTE" ]]; then
+                print_normal "Use remote $REMOTE from repository configuration."
+                use_remote=$REMOTE
+            fi
+            if [[ $force_branch -eq 0 && -n "$BRANCH" ]]; then
+                print_normal "Use branch $BRANCH from repository configuration."
+                use_branch=$BRANCH
+            fi
+            if [[ $force_submodule -eq 0 && -n "$SUBMODULE" ]]; then
+                print_normal "Use submodule $SUBMODULE from repository configuration."
+                submodule_name=$SUBMODULE
+            fi
+        fi
+
+        unset REMOTE
+        unset BRANCH
+        unset SUBMODULE
+
+        if [ -z "$submodule_name" ]; then
+            if [ $(git submodule | wc -l) -gt 1 ]; then
+                print_error "Skipping $repository (multiple submodules)"
+                leave_dir "$repository"
+                return
+            fi
+            submodule_name="$(git submodule | awk '{ print $2 }')"
+        else
+            submodule_name="$(git submodule | awk '{ print $2 }' | grep $submodule_name)"
+        fi
+
+        if [ -z "$submodule_name" ]; then
             print_error "Skipping $repository (submodule is not initialized)"
             leave_dir "$repository"
             return
@@ -80,46 +133,48 @@ handle_repository() {
         update_branch="update_submodule_$(date +%s)"
 
         # Make sure we are in latest commit
-        git fetch $main_remote
-        git checkout remotes/$main_remote/$main_branch -b $update_branch
+        run_cmd git fetch $use_remote
+        run_cmd git checkout remotes/$use_remote/$use_branch -b $update_branch
         if [ ! $? -eq 0 ]; then
-            print_error "Cannot switch to $update_branch (tracking remotes/$main_remote/$main_branch)"
+            print_error "Cannot switch to $update_branch (tracking remotes/$use_remote/$use_branch)"
             leave_dir "$repository"
             return
         fi
-        git submodule update
+        run_cmd git submodule update
 
         old_sha1="$(git submodule | awk '{ print $1 }')"
+        print_debug "# Old sha1: $old_sha1"
 
         enter_dir "$submodule_name"
 
             temp_tag="update_submodule_$(date +%s)"
             temp_commit="$(mktemp)"
-            git fetch origin
-            git tag $temp_tag
-            git checkout master
-            git merge origin/master
+            run_cmd git fetch origin
+            run_cmd git tag $temp_tag
+            run_cmd git checkout master
+            run_cmd git merge origin/master
             echo "REMOVE THIS LINE! (this commit is for $repository)" >> "$temp_commit"
             echo -e "Update submodule.\n" >> "$temp_commit"
             # This is the beef, create comment lines from submodule commits
-            git log --no-merges --reverse ${temp_tag}.. | grep -e '\[.*\].*' | sed -e 's/^[ \t]*//' >> "$temp_commit"
-            git tag -d $temp_tag
+            run_cmd git log --no-merges --reverse ${temp_tag}.. | grep -e '\[.*\].*' | sed -e 's/^[ \t]*//' >> "$temp_commit"
+            run_cmd git tag -d $temp_tag
 
         leave_dir "$submodule_name"
 
         new_sha1="$(git submodule | awk '{ print $1 }')"
+        print_debug "# New sha1: $new_sha1"
 
         if [ "$old_sha1" == "$new_sha1" ]; then
-            echo "No changes in $repository submodule."
-            git checkout $current_branch
-            git submodule update
-            git branch -D $update_branch
+            print_normal "No changes in $repository submodule."
+            run_cmd git checkout $current_branch
+            run_cmd git submodule update
+            run_cmd git branch -D $update_branch
             leave_dir "$repository"
             return
         fi
 
-        git add $submodule_name
-        git commit -t "$temp_commit"
+        run_cmd git add $submodule_name
+        run_cmd git commit -t "$temp_commit"
         rm -f "$temp_commit"
 
     leave_dir "$repository"
@@ -148,27 +203,40 @@ while [ $# -gt 0 ]; do
             echo "                      $(basename $0) dev1 -b devel dev2"
             echo "                    would handle dev1 update against branch master and dev2"
             echo "                    update against branch devel."
+            echo "  -s, --submodule Set explicit submodule name, useful if repository contains"
+            echo "                    multiple submodules."
             echo ""
-            echo "                    Defaults: remote=$remote branch=$branch"
+            echo "                    Defaults: remote=$opt_remote branch=$opt_branch"
             echo ""
             exit 0
             ;;
-        -v|--version)
+        --version)
             echo "$(basename $0) v$script_version"
             exit 0
             ;;
+        -v|--verbose)
+            DEBUG=1
+            ;;
         -b|--branch)
             shift
-            branch=$1
-            echo "Setting main branch to $branch for future updates."
+            opt_branch=$1
+            opt_force_branch=1
+            print_normal "Setting branch to $opt_branch for future updates."
             ;;
         -r|--remote)
             shift
-            remote=$1
-            echo "Setting main remote to $remote for future updates."
+            opt_remote=$1
+            opt_force_remote=1
+            print_normal "Setting remote to $opt_remote for future updates."
+            ;;
+        -s|--submodule)
+            shift
+            opt_submodule=$1
+            opt_force_submodule=1
+            print_normal "Setting explicit submodule to $opt_submodule for future updates."
             ;;
         --autocomplete)
-            echo "-h --help -v --version -b --branch -r --remote"
+            echo "-h --help -v --verbose --version -b --branch -r --remote"
             exit 0
             ;;
         -*)
@@ -176,7 +244,8 @@ while [ $# -gt 0 ]; do
             exit 1
             ;;
         *)
-            handle_repository $remote $branch $1
+            print_debug "# Repository $1 remote $opt_remote($opt_force_remote) branch $opt_branch($opt_force_branch) submodule $opt_submodule($opt_force_submodule)"
+            handle_repository $opt_force_remote $opt_remote $opt_force_branch $opt_branch $opt_force_submodule $opt_submodule "$1"
             ;;
     esac
     shift
