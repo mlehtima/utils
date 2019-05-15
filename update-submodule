@@ -142,7 +142,7 @@ while [ $# -gt 0 ]; do
             echo ""
             echo "  -h, --help      This help."
             echo "  -b, --branch    Set main remote for updates."
-            echo "  -m, --remote    Set main branch for updates."
+            echo "  -r, --remote    Set main branch for updates."
             echo "                    These switches set the branch or remote to the value for"
             echo "                    all updates after. For example:"
             echo "                      $(basename $0) dev1 -b devel dev2"
