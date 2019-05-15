@@ -243,7 +243,7 @@ while [ $# -gt 0 ]; do
             opt_signoff="--signoff"
             ;;
         --autocomplete)
-            echo "-h --help -v --verbose --version -b --branch -r --remote --signoff"
+            echo "-h --help -v --verbose --version -b --branch -r --remote -s --submodule --signoff"
             exit 0
             ;;
         -*)
