@@ -94,7 +94,7 @@ handle_repository() {
         enter_dir "$submodule_name"
 
             temp_tag="update_submodule_$(date +%s)"
-            temp_commit="$(tempfile)"
+            temp_commit="$(mktemp)"
             git fetch origin
             git tag $temp_tag
             git checkout master
@@ -125,7 +125,7 @@ handle_repository() {
     leave_dir "$repository"
 }
 
-check_bin git tempfile awk grep sed
+check_bin git mktemp awk grep sed
 if [ ! $all_good -eq 1 ]; then
     echo "Required bits missing. Abort."
     exit 1
