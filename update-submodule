@@ -167,6 +167,7 @@ handle_repository() {
 
         if [ "$old_sha1" == "$new_sha1" ]; then
             print_normal "No changes in $repository submodule."
+            rm -f "$temp_commit"
             run_cmd git checkout $current_branch
             run_cmd git submodule update
             run_cmd git branch -D $update_branch
