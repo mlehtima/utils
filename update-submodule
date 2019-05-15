@@ -12,6 +12,7 @@ opt_force_submodule=0
 opt_branch=master
 opt_remote=origin
 opt_submodule=
+opt_signoff=
 all_good=1
 
 print_error() {
@@ -174,7 +175,7 @@ handle_repository() {
         fi
 
         run_cmd git add $submodule_name
-        run_cmd git commit -t "$temp_commit"
+        run_cmd git commit $opt_signoff -t "$temp_commit"
         rm -f "$temp_commit"
 
     leave_dir "$repository"
@@ -205,6 +206,8 @@ while [ $# -gt 0 ]; do
             echo "                    update against branch devel."
             echo "  -s, --submodule Set explicit submodule name, useful if repository contains"
             echo "                    multiple submodules."
+            echo "  --signoff       Add Signed-off-by line by the committer at the end of the"
+            echo "                    commit log message."
             echo ""
             echo "                    Defaults: remote=$opt_remote branch=$opt_branch"
             echo ""
@@ -235,8 +238,11 @@ while [ $# -gt 0 ]; do
             opt_force_submodule=1
             print_normal "Setting explicit submodule to $opt_submodule for future updates."
             ;;
+        --signoff)
+            opt_signoff="--signoff"
+            ;;
         --autocomplete)
-            echo "-h --help -v --verbose --version -b --branch -r --remote"
+            echo "-h --help -v --verbose --version -b --branch -r --remote --signoff"
             exit 0
             ;;
         -*)
