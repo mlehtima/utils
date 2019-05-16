@@ -1,10 +1,17 @@
 #!/bin/bash
 
-script_version=3
+script_version=4
 
 PRINT_RED='\033[0;31m'
 PRINT_GREEN='\033[0;32m'
 PRINT_NC='\033[0m'
+
+OPT_FORMAT_DEFAULT="\$0"
+OPT_SCAN_FULL="%s%n%b"
+OPT_SCAN_SUBJECT="%s"
+OPT_SCAN_REGEX_TAG="^\[.*\].*"
+OPT_SCAN_REGEX_ALL=".*"
+PER_REPOSITORY_CONFIG=".git/update-submodule.conf"
 
 opt_force_branch=0
 opt_force_remote=0
@@ -12,7 +19,11 @@ opt_force_submodule=0
 opt_branch=master
 opt_remote=origin
 opt_submodule=
+opt_scan="$OPT_SCAN_FULL"
+opt_scan_regex="$OPT_SCAN_REGEX_TAG"
+opt_reverse=
 opt_signoff=
+opt_format="$OPT_FORMAT_DEFAULT"
 all_good=1
 
 print_error() {
@@ -31,7 +42,7 @@ print_normal() {
 
 run_cmd() {
     print_debug "$ $@"
-    $@
+    "$@"
 }
 
 check_bin() {
@@ -85,8 +96,8 @@ handle_repository() {
 
     enter_dir "$repository"
 
-        if [ -f ".git/update-submodule.conf" ]; then
-            source ".git/update-submodule.conf"
+        if [ -f "$PER_REPOSITORY_CONFIG" ]; then
+            source "$PER_REPOSITORY_CONFIG"
             if [[ $force_remote -eq 0 && -n "$REMOTE" ]]; then
                 print_normal "Use remote $REMOTE from repository configuration."
                 use_remote=$REMOTE
@@ -99,11 +110,11 @@ handle_repository() {
                 print_normal "Use submodule $SUBMODULE from repository configuration."
                 submodule_name=$SUBMODULE
             fi
-        fi
 
-        unset REMOTE
-        unset BRANCH
-        unset SUBMODULE
+            unset REMOTE
+            unset BRANCH
+            unset SUBMODULE
+        fi
 
         if [ -z "$submodule_name" ]; then
             if [ $(git submodule | wc -l) -gt 1 ]; then
@@ -157,7 +168,9 @@ handle_repository() {
             echo "REMOVE THIS LINE! (this commit is for $repository)" >> "$temp_commit"
             echo -e "Update submodule.\n" >> "$temp_commit"
             # This is the beef, create comment lines from submodule commits
-            run_cmd git log --no-merges --reverse ${temp_tag}.. | grep -e '\[.*\].*' | sed -e 's/^[ \t]*//' >> "$temp_commit"
+            if [[ -n "$opt_scan" && -n "$opt_scan_regex" ]]; then
+                run_cmd git log --format="$opt_scan" --no-merges $opt_reverse ${temp_tag}.. | grep -e "$opt_scan_regex" | awk "{ print $opt_format }" >> "$temp_commit"
+            fi
             run_cmd git tag -d $temp_tag
 
         leave_dir "$submodule_name"
@@ -188,30 +201,41 @@ if [ ! $all_good -eq 1 ]; then
     exit 1
 fi
 
+print_help() {
+    echo "Usage: $(basename $0) [OPTION] <repositories>"
+    echo ""
+    echo "Update droid-{hal,configs}-device (repository with submodule) style repositories'"
+    echo "submodule to latest upstream and generate changelog for the submodule update"
+    echo "commit. Defaults for BRANCH, REMOTE and SUBMODULE can be set per-repository"
+    echo "with $PER_REPOSITORY_CONFIG."
+    echo ""
+    echo "All switches affect repositories given after the switch, and when explicitly set"
+    echo "override whatever is defined in per-repository configuration file. That means"
+    echo "single command line may have multiple switches for different repositories."
+    echo ""
+    echo "  -h, --help      This help."
+    echo "  -v, --verbose   Print all commands and additional debugs."
+    echo "  -b, --branch    What remote to use for updates (default $opt_remote)."
+    echo "  -r, --remote    What branch to use for updates (default $opt_branch)."
+    echo "  -s, --submodule Set explicit submodule name, useful if repository contains"
+    echo "                    multiple submodules."
+    echo "  --use-subject   Take only subject lines from submodule commits to the update"
+    echo "                    commit message."
+    echo "  --scan          What to scan from commit messages (see git log --format)"
+    echo "                    default: $opt_scan"
+    echo "  --match         Matching lines are added to the update commit message."
+    echo "                    default: $opt_scan_regex"
+    echo "  --reverse       Reverse matched lines in update commit message."
+    echo "  --format        How to format message lines, see awk print (default $opt_format)."
+    echo "  --signoff       Add Signed-off-by line by the committer at the end of the"
+    echo "                    commit log message."
+    echo ""
+}
+
 while [ $# -gt 0 ]; do
     case $1 in
         -h|--help)
-            echo "Usage: $(basename $0) [OPTION] <repositories>"
-            echo ""
-            echo "Update droid-{hal,configs}-device (repository with submodule) style repositories'"
-            echo "submodule to latest upstream and generate changelog for the submodule update"
-            echo "commit."
-            echo ""
-            echo "  -h, --help      This help."
-            echo "  -b, --branch    Set main remote for updates."
-            echo "  -r, --remote    Set main branch for updates."
-            echo "                    These switches set the branch or remote to the value for"
-            echo "                    all updates after. For example:"
-            echo "                      $(basename $0) dev1 -b devel dev2"
-            echo "                    would handle dev1 update against branch master and dev2"
-            echo "                    update against branch devel."
-            echo "  -s, --submodule Set explicit submodule name, useful if repository contains"
-            echo "                    multiple submodules."
-            echo "  --signoff       Add Signed-off-by line by the committer at the end of the"
-            echo "                    commit log message."
-            echo ""
-            echo "                    Defaults: remote=$opt_remote branch=$opt_branch"
-            echo ""
+            print_help
             exit 0
             ;;
         --version)
@@ -239,11 +263,31 @@ while [ $# -gt 0 ]; do
             opt_force_submodule=1
             print_normal "Setting explicit submodule to $opt_submodule for future updates."
             ;;
+        --use-subject)
+            opt_scan="$OPT_SCAN_SUBJECT"
+            opt_scan_regex="$OPT_SCAN_REGEX_ALL"
+            ;;
+        --scan)
+            shift
+            opt_scan="$1"
+            ;;
+        --match)
+            shift
+            opt_scan_regex="$1"
+            ;;
+        --reverse)
+            shift
+            opt_reverse="--reverse"
+            ;;
+        --format)
+            shift
+            opt_format="$1"
+            ;;
         --signoff)
             opt_signoff="--signoff"
             ;;
         --autocomplete)
-            echo "-h --help -v --verbose --version -b --branch -r --remote -s --submodule --signoff"
+            echo "-h --help -v --verbose --version -b --branch -r --remote -s --submodule --use-subject --scan --match --reverse --format --signoff"
             exit 0
             ;;
         -*)
