@@ -9,6 +9,7 @@
 # autocmd FileType gitopenbuffer map <buffer> j <Down> ^
 # autocmd FileType gitopenbuffer map <buffer> k ^<Backspace><Backspace>^
 # autocmd FileType gitopenbuffer map <buffer> q :q!<CR>
+# autocmd FileType gitopenbuffer map <buffer> <ENTER> ^gF
 # command! -nargs=* -complete=shellcmd G tabnew | setlocal filetype=gitopenbuffer buftype=nofile bufhidden=hide noswapfile | r !vim-grep "<args>"
 # nnoremap <C-F> :G <C-R><C-W><CR>
 #
