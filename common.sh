@@ -14,8 +14,8 @@
 # Have symlink in $HOME/bin pointing to your script do_something.sh
 #
 
-# Increase this when functionality changes
-COMMON_VERSION=1
+# Increase this when functionality changes or new helper functions are added
+COMMON_VERSION=2
 
 COMMON_CONFIG_LOCATION="$HOME/.config/$(basename $0).config"
 
@@ -139,6 +139,26 @@ load_config() {
 # Exit with 4 if file not found.
 need_config() {
     need_config_absolute "$COMMON_CONFIG_LOCATION"
+}
+
+# This can be used to easily check if variable is true or false.
+# For example:
+# if string_is_true $var; then
+#   do_something
+# fi
+string_is_true() {
+    case "${1,,}" in
+        yes)
+            return 0
+            ;;
+        no)
+            return 1
+            ;;
+        false|0|"")
+            return 1
+            ;;
+    esac
+    return 0
 }
 
 # handle_options: Handle script arguments
