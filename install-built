@@ -64,15 +64,6 @@ handle_options \
 
 remote="$INSTALL_USER@$INSTALL_HOST"
 
-# search rpm output directory...
-while [ "$PWD" != "/" ]; do
-    if [ -d "RPMS" ]; then
-        rpms_dir="$PWD/RPMS"
-        break
-    fi
-    cd ..
-done
-
 if [ $WATCH_FOR_FILE -eq 1 ]; then
     f=
     c=0
@@ -106,6 +97,15 @@ if [ $WATCH_FOR_FILE -eq 1 ]; then
         done
     fi
 fi
+
+# search rpm output directory...
+while [ "$PWD" != "/" ]; do
+    if [ -d "RPMS" ]; then
+        rpms_dir="$PWD/RPMS"
+        break
+    fi
+    cd ..
+done
 
 cd "$current_dir"
 
