@@ -3,14 +3,14 @@
 SCRIPTPATH="$(dirname "`readlink -f $0`")"
 source "$SCRIPTPATH/common.sh" || exit 1
 
-expect_common_version 1
+expect_common_version 2
 need_binaries scp ssh rpm inotifywait
 load_config
 check_config \
     INSTALL_HOST="192.168.2.15" \
     INSTALL_USER="root" \
     IGNORE_PACKAGES="-devel -tests -doc" \
-    WATCH_FOR_FILE=0 \
+    WATCH_FOR_FILE="false" \
     WATCH_PATTERN="rpm/*.spec.*"
 
 SCRIPT_VERSION="6"
@@ -35,18 +35,20 @@ print_usage() {
     echo "                              current INSTALL_HOST=$INSTALL_HOST"
     echo "  -u|--user <value>       Which user to use when installing [default $INSTALL_USER]"
     echo "                              current INSTALL_USER=$INSTALL_USER"
-    echo "  -i|--ignore \"<value>\"   Packages to ignore when installing"
+    echo "  -i|--ignore \"<value>\" Packages to ignore when installing"
     echo "                            Whitespace separated list of strings that are used to ignore"
     echo "                            packages when installing. Strings are matched to any part of the"
     echo "                            package name, so for example ignore value \"devel\" will"
     echo "                            match foo-devel-0.1.rpm."
     echo "                              current IGNORE_PACKAGES=\"$IGNORE_PACKAGES\""
-    echo "  -w|--watch                Wait for existence of file and when the file is removed"
-    echo "                              execute the install. If the file doesn't exist the script"
-    echo "                              will wait for creation of new files that would match the"
-    echo "                              pattern."
-    echo "  -p|--pattern              File to wait for with --watch, implies --watch if that is not"
-    echo "                              defined. Default watch pattern \"$WATCH_PATTERN\""
+    echo "  -w|--watch              Wait for existence of file and when the file is removed"
+    echo "                            execute the install. If the file doesn't exist the script"
+    echo "                            will wait for creation of new files that would match the"
+    echo "                            pattern."
+    echo "                             current WATCH_FOR_FILE=$WATCH_FOR_FILE"
+    echo "  -p|--pattern            File to wait for with --watch, implies --watch if that is not"
+    echo "                            defined."
+    echo "                              current WATCH_PATTERN=\"$WATCH_PATTERN\""
     echo ""
     exit 0
 }
@@ -64,7 +66,7 @@ handle_options \
 
 remote="$INSTALL_USER@$INSTALL_HOST"
 
-if [ $WATCH_FOR_FILE -eq 1 ]; then
+if string_is_true $WATCH_FOR_FILE; then
     f=
     c=0
 
@@ -87,7 +89,7 @@ if [ $WATCH_FOR_FILE -eq 1 ]; then
             break
         fi
 
-        inotifywait -qq -e create rpm
+        inotifywait -qq -e create $watch_path
     done
 
     if [ -e "$f" ]; then
