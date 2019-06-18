@@ -11,9 +11,9 @@ check_config \
     INSTALL_USER="root" \
     IGNORE_PACKAGES="-devel -tests -doc" \
     WATCH_FOR_FILE=0 \
-    WATCH_PATTERN="*.spec.*"
+    WATCH_PATTERN="rpm/*.spec.*"
 
-SCRIPT_VERSION="5"
+SCRIPT_VERSION="6"
 current_dir="$PWD"
 rpms_dir=
 to_copy=
@@ -42,8 +42,9 @@ print_usage() {
     echo "                            match foo-devel-0.1.rpm."
     echo "                              current IGNORE_PACKAGES=\"$IGNORE_PACKAGES\""
     echo "  -w|--watch                Wait for existence of file and when the file is removed"
-    echo "                              execute the install. If the file doesn't exist the operation"
-    echo "                              is executed immediately."
+    echo "                              execute the install. If the file doesn't exist the script"
+    echo "                              will wait for creation of new files that would match the"
+    echo "                              pattern."
     echo "  -p|--pattern              File to wait for with --watch, implies --watch if that is not"
     echo "                              defined. Default watch pattern \"$WATCH_PATTERN\""
     echo ""
@@ -73,14 +74,36 @@ while [ "$PWD" != "/" ]; do
 done
 
 if [ $WATCH_FOR_FILE -eq 1 ]; then
-    f="$(find rpm -name "$WATCH_PATTERN")"
-    if [ $(echo $f | wc -w) -gt 1 ]; then
-        echo "fatal: Ambiguous watch pattern, found $f"
-        exit 1
+    f=
+    c=0
+
+    watch_path="."
+    watch_file="$WATCH_PATTERN"
+    if [[ "$WATCH_PATTERN" =~ "/" ]]; then
+        watch_path=${WATCH_PATTERN%/*}
+        watch_file=${WATCH_PATTERN##*/}
     fi
+
+    while [ 1 ]; do
+        f="$(find $watch_path -name "$watch_file")"
+        c=$(echo $f | wc -w)
+        if [ $c -gt 1 ]; then
+            echo "fatal: Ambiguous watch pattern, found $f"
+            exit 1
+        fi
+
+        if [ $c -eq 1 ]; then
+            break
+        fi
+
+        inotifywait -qq -e create rpm
+    done
+
     if [ -e "$f" ]; then
         echo "waiting for $f ..."
-        inotifywait -e delete_self -qq "$f"
+        while [ -e "$f" ]; do
+            inotifywait -qq -e delete_self "$f"
+        done
     fi
 fi
 
