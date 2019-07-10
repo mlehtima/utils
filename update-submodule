@@ -12,6 +12,7 @@ OPT_SCAN_FULL="%s%n%b"
 OPT_SCAN_SUBJECT="%s"
 OPT_SCAN_REGEX_TAG="^\[.*\].*"
 OPT_SCAN_REGEX_ALL=".*"
+GLOBAL_CONFIG="$HOME/.config/update-submodule.conf"
 PER_REPOSITORY_CONFIG=".git/update-submodule.conf"
 
 opt_force_branch=0
@@ -249,6 +250,24 @@ print_help() {
     echo "                    commit log message."
     echo ""
 }
+
+if [ -f "$GLOBAL_CONFIG" ]; then
+    source "$GLOBAL_CONFIG"
+    if [ -n "$REMOTE" ]; then
+        opt_remote="$REMOTE"
+    fi
+    if [ -n "$BRANCH" ]; then
+        opt_branch="$BRANCH"
+    fi
+    if [ -n "$SUBJECT" ]; then
+        opt_subject="$SUBJECT"
+    fi
+
+    unset REMOTE
+    unset BRANCH
+    unset SUBJECT
+    unset SUBMODULE
+fi
 
 while [ $# -gt 0 ]; do
     case $1 in
