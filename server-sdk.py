@@ -19,8 +19,8 @@ SERVICE_NAME = "org.sailfish.sdkrun"
 SERVICE_PATH = "/org/sailfish/sdkrun"
 
 MIN_LINES_FOR_ERROR = 20
-ERROR_STR           = "\x1b[31m%s\x1b[39m"
-WARN_STR            = "\x1b[33m%s\x1b[39m"
+ERROR_STR           = "\x1b[31m{}\x1b[39m"
+WARN_STR            = "\x1b[33m{}\x1b[39m"
 
 class WorkerPrinter():
     def __init__(self, debug=False):
@@ -56,10 +56,10 @@ class WorkerPrinter():
 
     def debug(self, line):
         if self._debug_enabled:
-            self.println("DEBUG: " + line)
+            self.println("DEBUG: {}".format(line))
 
     def println(self, line):
-        self._print(line + "\n")
+        self._print("{}\n".format(line))
 
     def reset(self):
         self._lines = 0
@@ -69,7 +69,7 @@ class WorkerPrinter():
         printed = False
         for regex, pr, error in self._match:
             if regex.match(line):
-                self._print(pr % line)
+                self._print(pr.format(line))
                 printed = True
                 if error:
                     self._errors.append(line)
@@ -82,7 +82,7 @@ class WorkerPrinter():
     def end(self):
         if len(self._errors) > 0 and self._lines > MIN_LINES_FOR_ERROR:
             for line in self._errors:
-                self._print(ERROR_STR % line)
+                self._print(ERROR_STR.format(line))
         self.reset()
 
     def done(self):
@@ -104,13 +104,14 @@ class Task(threading.Thread):
     def reset_ids():
         Task.global_id = 0
 
-    def __init__(self, pwd, argv, state_callback=None, process_callback=None):
+    def __init__(self, pwd, argv, state_callback=None, process_callback=None, background=False):
         threading.Thread.__init__(self)
         self._pwd = pwd
         self._argv = list(argv)
         Task.global_id += 1
         self._id = Task.global_id
         self._state = Task.CREATED
+        self._background = background
         self._process = None
         self._process_lock = threading.Lock()
         self._state_cb = state_callback
@@ -155,6 +156,9 @@ class Task(threading.Thread):
 
     def state(self):
         return self._state
+
+    def background(self):
+        return self._background
 
     def returncode(self):
         return self._returncode
@@ -239,16 +243,16 @@ class TaskManager():
         self._tasks_lock.release()
         return ret
 
-    def add_task(self, pwd, cmdline):
+    def add_task(self, pwd, cmdline, background):
         self._tasks_lock.acquire()
         if len(self._tasks) == 0:
             Task.reset_ids()
-        task = Task(pwd, cmdline, self._task_state_changed, self._task_process_line)
+        task = Task(pwd, cmdline, self._task_state_changed, self._task_process_line, background)
         try:
-            if len(self._tasks) == 0:
+            if len(self._tasks) == 0 or task.background():
                 task.start()
         except Exception as e:
-            self._printer.println("[\x1b[32m%s\x1b[39m] %s  \x1b[31mFailed to create task thread: %s\x1b[39m" % (task.pwd(), task.cmdline(), e))
+            self._printer.println("[\x1b[32m{}\x1b[39m] {}  \x1b[31mFailed to create task thread: {}\x1b[39m".format(task.pwd(), task.cmdline(), e))
             self._printer.println(traceback.format_exc())
             self._tasks_lock.release()
             return -1
@@ -258,14 +262,15 @@ class TaskManager():
 
         self._last_pwd = pwd
         self._last_cmdline = cmdline
-        self._printer.debug("task added")
+        self._last_background = background
+        self._printer.debug("{}task added".format("background " if task.background() else ""))
         self._service.TaskStateChanged(task.state(), task.id(), task.pwd(), task.cmdline(), task.time())
         return task.id()
 
     def repeat_task(self):
         if not self._last_cmdline:
             return -1
-        return self.add_task(self._last_pwd, self._last_cmdline)
+        return self.add_task(self._last_pwd, self._last_cmdline, self._last_background)
 
     def cancel_task(self, idno):
         self._tasks_lock.acquire()
@@ -309,25 +314,26 @@ class TaskManager():
         if last:
             self._printer.end()
         if len(self._tasks) > 0:
-            self._tasks[0].start()
+            if self._tasks[0].state() == Task.CREATED:
+                self._tasks[0].start()
 
     # called from task thread (task lock held)
     def _task_state_changed(self, task):
         if self._printer.debug_enabled():
-            self._printer.debug("task \"%s\" state %d" % (task.cmdline(), task.state()))
+            self._printer.debug("task \"{}\" state {}".format(task.cmdline(), task.state()))
 
         if task.state() == Task.STARTING:
             self._printer.reset()
-            self._printer.println("[\x1b[32m%s\x1b[39m] %s" % (task.pwd(), task.cmdline()))
+            self._printer.println("[\x1b[32m{}\x1b[39m] {}".format(task.pwd(), task.cmdline()))
 
         elif task.state() == Task.DONE:
             self._tasks_lock.acquire()
-            self._print_and_remove(task, "[\x1b[32m%s\x1b[39m] %s  \x1b[32mSUCCESS\x1b[39m" % (task.pwd(), task.cmdline()))
+            self._print_and_remove(task, "[\x1b[32m{}\x1b[39m] {}  \x1b[32mSUCCESS\x1b[39m".format(task.pwd(), task.cmdline()))
             self._tasks_lock.release()
 
         elif task.state() == Task.FAIL:
             self._tasks_lock.acquire()
-            self._print_and_remove(task, "[\x1b[32m%s\x1b[39m] %s  \x1b[31mFAIL\x1b[39m (%d)" % (task.pwd(), task.cmdline(), task.returncode()), last=True)
+            self._print_and_remove(task, "[\x1b[32m{}\x1b[39m] {}  \x1b[31mFAIL\x1b[39m ({})".format(task.pwd(), task.cmdline(), task.returncode()), last=True)
             self._tasks_lock.release()
 
         self._service.TaskStateChanged(task.state(), task.id(), task.pwd(), task.cmdline(), task.time())
@@ -360,10 +366,10 @@ class Service(dbus.service.Object):
     def Tasks(self):
         return self._manager.tasks()
 
-    @dbus.service.method(SERVICE_NAME, in_signature='sas', out_signature='i')
-    def AddTask(self, pwd, cmdline):
+    @dbus.service.method(SERVICE_NAME, in_signature='sasb', out_signature='i')
+    def AddTask(self, pwd, cmdline, background):
         if len(cmdline) > 0:
-            return self._manager.add_task(pwd, cmdline)
+            return self._manager.add_task(pwd, cmdline, background)
         return -1
 
     @dbus.service.method(SERVICE_NAME, in_signature='', out_signature='i')
