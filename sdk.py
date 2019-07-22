@@ -14,6 +14,7 @@ PATH="/org/sailfish/sdkrun"
 NAME="org.sailfish.sdkrun"
 
 TARGET_ARG="-t"
+BACKGROUND_ARG="--bg"
 
 STATE_CREATED   = 0
 STATE_STARTING  = 1
@@ -96,8 +97,8 @@ def cancel(idno):
 def repeat():
     method("Repeat")()
 
-def run(pwd, cmd):
-    method("AddTask")(pwd, cmd)
+def run(pwd, cmd, background=False):
+    method("AddTask")(pwd, cmd, background)
 
 def get_default_target():
     default = None
@@ -110,6 +111,12 @@ def get_default_target():
     except IOError:
         pass
     return default
+
+def is_background(cmd):
+    if BACKGROUND_ARG in cmd:
+        cmd.remove(BACKGROUND_ARG)
+        return True
+    return False
 
 def apply_default(cmd, final):
     use_default = True
@@ -127,16 +134,18 @@ def apply_default(cmd, final):
 
 def run_cmd(pwd, exe, cmd):
     final = [exe]
+    bg = is_background(cmd)
     apply_default(cmd, final)
     final.extend(cmd)
-    run(pwd, final)
+    run(pwd, final, bg)
 
 def run_sdk_install(pwd, cmd):
     final = ['sb2']
+    bg = is_background(cmd)
     apply_default(cmd, final)
     final.extend(['-m', 'sdk-install', '-R'])
     final.extend(cmd)
-    run(pwd, final)
+    run(pwd, final, bg)
 
 def set_default_target(name):
     cmd = ['sb2-config', '-d', name]
