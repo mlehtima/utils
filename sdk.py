@@ -88,9 +88,8 @@ def cancel(idno):
     if idno < 0:
         tasks = method("Tasks")()
         for idn, state, full_path, cmd in tasks:
-            if state == STATE_RUNNING:
+            if idn > idno:
                 idno = idn
-                break
     if idno > 0:
         method("CancelTask")(idno)
 
