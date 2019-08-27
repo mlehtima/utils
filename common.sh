@@ -148,15 +148,8 @@ need_config() {
 # fi
 string_is_true() {
     case "${1,,}" in
-        yes)
-            return 0
-            ;;
-        no)
-            return 1
-            ;;
-        false|0|"")
-            return 1
-            ;;
+        yes|y|true|1)       return 0    ;;
+        no|n|false|0|"")    return 1    ;;
     esac
     return 0
 }
