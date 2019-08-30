@@ -1,0 +1,34 @@
+_dk-tasks()
+{
+    local cur opts opts2 prev
+    _init_completion -s || return
+
+    COMPREPLY=()
+    cur="${COMP_WORDS[COMP_CWORD]}"
+    prev="${COMP_WORDS[COMP_CWORD-1]}"
+
+    opts="$(dk-tasks --autocomplete)"
+
+    case "${cur}" in
+        -*)
+            COMPREPLY=($(compgen -W "${opts}" -- ${cur}))
+            return 0
+            ;;
+    esac
+
+    shopt -s extglob
+    opts2="@($(dk-tasks --autocomplete2))"
+
+    case "${prev}" in
+        $opts2)
+            local tasks="$(dk-tasks | tail -n+2 | awk '{print $1}')"
+            COMPREPLY=( $(compgen -W "${tasks}" -- ${cur}) )
+            return 0
+            ;;
+        *)
+        ;;
+    esac
+
+    return 0
+}
+complete -F _dk-tasks dk-tasks
