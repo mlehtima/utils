@@ -119,6 +119,8 @@ class Task(threading.Thread):
         self._returncode = -1
         self._start_time = time.time()
         self._duration = -1
+        self._followers = []
+        self._output = []
 
     def lock(self):
         self._process_lock.acquire();
@@ -166,6 +168,36 @@ class Task(threading.Thread):
     def time(self):
         return self._duration
 
+    def register_follower(self, name):
+        IFACE = "org.sailfish.sdk.client"
+        PATH  = "/org/sailfish/sdk/client"
+        bus = dbus.SessionBus()
+        service = bus.get_object(name, PATH)
+        method_write = service.get_dbus_method("Write", IFACE)
+        method_quit = service.get_dbus_method("Quit", IFACE)
+        self._followers.append((method_write, method_quit, name))
+
+    def unregister_follower(self, unregister_name):
+        i = 0
+        for method_write, method_quit, name in self._followers:
+            if unregister_name == name:
+                self._followers.pop(i)
+                break
+            i += 1
+
+    def log(self):
+        return "".join(self._output)
+
+    def _process_line(self, line):
+        self._output.append(line)
+
+        if len(self._followers):
+            for method_write, method_quit, name in self._followers:
+                method_write(line)
+
+        if self._process_cb:
+            self._process_cb(line)
+
     def run(self):
         if self._state != Task.CREATED:
             return
@@ -197,8 +229,7 @@ class Task(threading.Thread):
                 self.unlock()
                 break
 
-            if self._process_cb:
-                self._process_cb(line)
+            self._process_line(line)
 
         self._duration = time.time() - self._start_time
 
@@ -209,6 +240,10 @@ class Task(threading.Thread):
 
         # clean up
         self.lock()
+        for method_write, method_quit, name in self._followers:
+            method_quit(self._returncode)
+        while len(self._followers):
+            self._followers.pop()
         if self._process.stdin:
             self._process.stdin.close()
         if self._process.stdout:
@@ -319,6 +354,30 @@ class TaskManager():
             while len(self._tasks):
                 self._tasks.pop()
 
+    def _task_with_id(self, idno):
+        for task in self._tasks:
+            if task.id() == idno:
+                return task
+        return None
+
+    def follow_task(self, idno, name):
+        task = self._task_with_id(idno)
+        if task:
+            task.register_follower(name)
+            return True
+        return False
+
+    def unfollow_task(self, idno, name):
+        task = self._task_with_id(idno)
+        if task:
+            task.unregister_follower(name)
+
+    def task_log(self, idno):
+        task = self._task_with_id(idno)
+        if task:
+            return True, task.log()
+        return False, ""
+
     def quit(self):
         self.cancel_all()
         self._printer.done()
@@ -409,6 +468,25 @@ class Service(dbus.service.Object):
     @dbus.service.method(SERVICE_NAME, in_signature='', out_signature='')
     def CancelAll(self):
         return self._manager.cancel_all()
+
+    @dbus.service.method(SERVICE_NAME, in_signature='', out_signature='')
+    def Reset(self):
+        self._manager.cancel_all(clear_history=True)
+        Task.reset_ids()
+        # This is slight hack for now, just nudge the client so it updates task list
+        self.TaskStateChanged(Task.DONE, 0, "", "", 0)
+
+    @dbus.service.method(SERVICE_NAME, in_signature='is', out_signature='b')
+    def FollowTask(self, idno, name):
+        return self._manager.follow_task(idno, name)
+
+    @dbus.service.method(SERVICE_NAME, in_signature='is', out_signature='')
+    def UnfollowTask(self, idno, name):
+        self._manager.unfollow_task(idno, name)
+
+    @dbus.service.method(SERVICE_NAME, in_signature='i', out_signature='bs')
+    def Log(self, idno):
+        return self._manager.task_log(idno)
 
     @dbus.service.method(SERVICE_NAME, in_signature='', out_signature='')
     def Quit(self):
