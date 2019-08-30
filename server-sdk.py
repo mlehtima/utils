@@ -233,6 +233,7 @@ class TaskManager():
         self._printer = WorkerPrinter()
         self._last_pwd = None
         self._last_cmdline = None
+        self._history_length = 20 # hard-coded for now
         signal.signal(signal.SIGINT, self._sigint_handler)
 
     def tasks(self):
@@ -243,21 +244,40 @@ class TaskManager():
         self._tasks_lock.release()
         return ret
 
-    def add_task(self, pwd, cmdline, background):
-        self._tasks_lock.acquire()
-        if len(self._tasks) == 0:
-            Task.reset_ids()
-        task = Task(pwd, cmdline, self._task_state_changed, self._task_process_line, background)
+    # run with task lock acquired
+    def _append_task(self, task):
+        if len(self._tasks) >= self._history_length:
+            i = 0
+            for t in self._tasks:
+                if t.state() == Task.DONE or t.state() == Task.FAIL:
+                    self._tasks.pop(i)
+                    break
+            i += 1
+        self._tasks.append(task)
+
+    def _run_task(self, task):
         try:
-            if len(self._tasks) == 0 or task.background():
-                task.start()
+            task.start()
+            return True
         except Exception as e:
             self._printer.println("[\x1b[32m{}\x1b[39m] {}  \x1b[31mFailed to create task thread: {}\x1b[39m".format(task.pwd(), task.cmdline(), e))
             self._printer.println(traceback.format_exc())
-            self._tasks_lock.release()
-            return -1
+            return False
 
-        self._tasks.append(task)
+
+    def add_task(self, pwd, cmdline, background):
+        self._tasks_lock.acquire()
+        #if len(self._tasks) == 0:
+        #    Task.reset_ids()
+        cb = None
+        if not background:
+            cb = self._task_process_line
+        task = Task(pwd, cmdline, self._task_state_changed, cb, background)
+        if background or not self._find_task(Task.RUNNING):
+            if not self._run_task(task):
+                self._tasks_lock.release()
+                return -1
+        self._append_task(task)
         self._tasks_lock.release()
 
         self._last_pwd = pwd
@@ -276,16 +296,14 @@ class TaskManager():
         self._tasks_lock.acquire()
         for task in self._tasks:
             if task.id() == idno:
-                self._tasks.remove(task)
                 task.cancel()
                 break
         self._tasks_lock.release()
 
-    def cancel_all(self):
+    def cancel_all(self, clear_history=False):
         self._tasks_lock.acquire()
         running = None
-        while len(self._tasks) > 0:
-            task = self._tasks.pop()
+        for task in self._tasks:
             task.lock()
             if task.state() == Task.RUNNING:
                 running = task
@@ -297,6 +315,9 @@ class TaskManager():
         self._tasks_lock.release()
         if running:
             running.join()
+        if clear_history:
+            while len(self._tasks):
+                self._tasks.pop()
 
     def quit(self):
         self.cancel_all()
@@ -306,16 +327,21 @@ class TaskManager():
     def _task_process_line(self, line):
         self._printer.process(line)
 
+    # return first task of task_type
+    def _find_task(self, task_type):
+        for task in self._tasks:
+            if task.state() == task_type:
+                return task
+        return None
+
     # called from task thread (task lock held)
     def _print_and_remove(self, task, line, last=False):
-        if task in self._tasks:
-            self._tasks.remove(task);
         self._printer.println(line)
         if last:
             self._printer.end()
-        if len(self._tasks) > 0:
-            if self._tasks[0].state() == Task.CREATED:
-                self._tasks[0].start()
+        task = self._find_task(Task.CREATED)
+        if task:
+            self._run_task(task)
 
     # called from task thread (task lock held)
     def _task_state_changed(self, task):
