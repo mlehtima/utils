@@ -180,6 +180,32 @@ def sb2_default_target():
         if ret:
             set_default_target(ret.split("\n")[0])
 
+def sys_args1(*argv):
+    if len(sys.argv) > 1:
+        for arg in argv:
+            if arg == sys.argv[1]:
+                return True
+    return False
+
+def sys_int_val(pos, default=None):
+    r = True
+    if len(sys.argv) <= pos:
+        if default is None:
+            r = False
+        else:
+            i = default
+    else:
+        try:
+            i = int(sys.argv[pos])
+        except ValueError as e:
+            r = False
+
+    if not r:
+        sys.stderr.write("Integer argument required.\n")
+        sys.stderr.flush()
+        sys.exit(1)
+    return i
+
 def main():
     cmd = ''.join(sys.argv[0].split("-")[-1:])
 
@@ -193,31 +219,28 @@ def main():
             print_tasks()
 
     elif cmd == "cancel":
-        idno = -1
-        if len(sys.argv) > 1:
-            if sys.argv[1] == "all":
-                cancel_all()
-                return
-            idno = int(sys.argv[1])
+        if sys_args1("all"):
+            cancel_all()
+            return
+        idno = sys_int_val(1, default=-1)
         cancel(idno)
 
     elif cmd == "cancelall":
         cancel_all()
 
     elif cmd == "default_target":
-        if len(sys.argv) > 1:
+        if sys_args1("--list"):
+            for p in sb2_targets():
+                print(p)
+        elif sys_args1("--current"):
+            print(get_default_target())
+        elif len(sys.argv) > 1:
             arg = sys.argv[1]
-            if arg == "--list":
-                for p in sb2_targets():
-                    print(p)
-            elif arg == "--current":
-                print(get_default_target())
+            if arg in sb2_targets():
+                set_default_target(arg)
             else:
-                if arg in sb2_targets():
-                    set_default_target(arg)
-                else:
-                    print("no target '%s' found." % arg)
-                    sys.exit(1)
+                print("Target '%s' not found." % arg)
+                sys.exit(1)
         else:
             sb2_default_target()
 
