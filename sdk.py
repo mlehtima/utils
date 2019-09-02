@@ -153,7 +153,12 @@ class TaskFollower(dbus.service.Object):
         sys.stdout.write(line)
         sys.stdout.flush()
 
+def set_stdout_utf8():
+    import codecs
+    sys.stdout = codecs.getwriter('utf8')(sys.stdout)
+
 def follow_task(idno):
+    set_stdout_utf8()
     t = TaskFollower(idno)
     t.run()
     sys.exit(t.retno())
@@ -161,6 +166,7 @@ def follow_task(idno):
 def log(idno):
     found, text = sdk_method("Log")(idno)
     if found:
+        set_stdout_utf8()
         sys.stdout.write(text)
         sys.stdout.flush()
     else:
