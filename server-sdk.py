@@ -284,7 +284,7 @@ class TaskManager():
         if len(self._tasks) >= self._history_length:
             i = 0
             for t in self._tasks:
-                if t.state() == Task.DONE or t.state() == Task.FAIL:
+                if t.state() in (Task.DONE, Task.CANCEL, Task.FAIL):
                     self._tasks.pop(i)
                     break
             i += 1
