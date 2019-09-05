@@ -18,6 +18,7 @@ from gi.repository import GObject as gobject
 SERVICE_NAME = "org.sailfish.sdkrun"
 SERVICE_PATH = "/org/sailfish/sdkrun"
 
+TASK_HISTORY_LENGTH = 50
 MIN_LINES_FOR_ERROR = 20
 ERROR_STR           = "\x1b[31m{}\x1b[39m"
 WARN_STR            = "\x1b[33m{}\x1b[39m"
@@ -268,7 +269,7 @@ class TaskManager():
         self._printer = WorkerPrinter()
         self._last_pwd = None
         self._last_cmdline = None
-        self._history_length = 20 # hard-coded for now
+        self._history_length = TASK_HISTORY_LENGTH
         signal.signal(signal.SIGINT, self._sigint_handler)
 
     def tasks(self):
