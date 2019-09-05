@@ -157,7 +157,22 @@ def set_stdout_utf8():
     import codecs
     sys.stdout = codecs.getwriter('utf8')(sys.stdout)
 
+def follow_task_hack(idno):
+    # This is stupid workaround, but couldn't figure out how to get
+    # mainloop running again for the TaskFollower.
+    os.execlp("dk-tasks", "dk-tasks", "--follow", str(idno))
+
 def follow_task(idno):
+    if idno < 0:
+        tasks = sdk_method("Tasks")()
+        for idn, state, full_path, cmd in tasks:
+            if state == STATE_RUNNING and idn > idno:
+                idno = idn
+        if idno < 0:
+            sys.stderr.write("No running tasks found.\n")
+            sys.stderr.flush()
+            sys.exit(1)
+        follow_task_hack(idno)
     set_stdout_utf8()
     t = TaskFollower(idno)
     t.run()
@@ -193,10 +208,7 @@ def run_cmd(pwd, cmd, background=False):
     follow = follow_created_task(cmd)
     r = sdk_method("AddTask")(pwd, cmd, background)
     if r > 0 and follow:
-        #follow_task(r)
-        # This is stupid workaround, but couldn't figure out how to get
-        # mainloop running again for the TaskFollower.
-        os.execlp("dk-tasks", "dk-tasks", "--follow", str(r))
+        follow_task_hack(r)
 
 def get_default_target():
     default = None
@@ -325,7 +337,7 @@ def main():
         elif sys_args1("--monitor", "-m"):
             monitor_tasks()
         elif sys_args1("--follow", "-f"):
-            follow_task(sys_int_val(2))
+            follow_task(sys_int_val(2, default=-1))
         elif sys_args1("--log", "-l"):
             log(sys_int_val(2))
         else:
