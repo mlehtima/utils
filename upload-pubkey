@@ -66,7 +66,12 @@ extra_scripts() {
             script="$EXECUTE_D/$i"
             if [ -x "$script" ]; then
                 debug_print "run $(basename $script)..."
-                USE_KEY="$USE_KEY" USE_USER="$USE_USER" USE_HOST="$USE_HOST" SSH_OPT="$SSH_OPT" $script
+                DEBUG="$DEBUG" \
+                    USE_KEY="$USE_KEY" \
+                    USE_USER="$USE_USER" \
+                    USE_HOST="$USE_HOST" \
+                    SSH_OPT="$SSH_OPT" \
+                    $script
             fi
         done
     fi
