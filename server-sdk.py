@@ -22,6 +22,9 @@ TASK_HISTORY_LENGTH = 50
 MIN_LINES_FOR_ERROR = 20
 ERROR_STR           = "\x1b[31m{}\x1b[39m"
 WARN_STR            = "\x1b[33m{}\x1b[39m"
+LOG_STATE_STR       = "\x1b[33m({0:>3})\x1b[39m [\x1b[32m{1}\x1b[39m] {2}"
+LOG_SUCCESS_STR     = "\x1b[32mSUCCESS\x1b[39m"
+LOG_FAIL_STR        = "\x1b[31mFAIL\x1b[39m"
 
 class WorkerPrinter():
     def __init__(self, debug=False):
@@ -147,6 +150,9 @@ class Task(threading.Thread):
     def cmdline(self):
         return ' '.join(self._argv)
 
+    def state_pretty_str(self):
+        return LOG_STATE_STR.format(self.id(), self.pwd(), self.cmdline())
+
     def _set_state(self, state, lock=True):
         if lock:
             self.lock();
@@ -197,7 +203,7 @@ class Task(threading.Thread):
                 method_write(line)
 
         if self._process_cb:
-            self._process_cb(line)
+            self._process_cb(self, line)
 
     def run(self):
         if self._state != Task.CREATED:
@@ -384,8 +390,10 @@ class TaskManager():
         self._printer.done()
 
     # called from task thread
-    def _task_process_line(self, line):
+    def _task_process_line(self, task, line):
         self._printer.process(line)
+        # This is a bit too much...
+        #self._printer.process("\x1b[33m({0})\x1b[39m {1}".format(task.id(), line))
 
     # return first task of task_type
     def _find_task(self, task_type):
@@ -410,16 +418,16 @@ class TaskManager():
 
         if task.state() == Task.STARTING:
             self._printer.reset()
-            self._printer.println("[\x1b[32m{}\x1b[39m] {}".format(task.pwd(), task.cmdline()))
+            self._printer.println(task.state_pretty_str())
 
         elif task.state() == Task.DONE:
             self._tasks_lock.acquire()
-            self._print_and_remove(task, "[\x1b[32m{}\x1b[39m] {}  \x1b[32mSUCCESS\x1b[39m".format(task.pwd(), task.cmdline()))
+            self._print_and_remove(task, "{0}  {1}".format(task.state_pretty_str(), LOG_SUCCESS_STR));
             self._tasks_lock.release()
 
         elif task.state() == Task.FAIL:
             self._tasks_lock.acquire()
-            self._print_and_remove(task, "[\x1b[32m{}\x1b[39m] {}  \x1b[31mFAIL\x1b[39m ({})".format(task.pwd(), task.cmdline(), task.returncode()), last=True)
+            self._print_and_remove(task, "{0}  {1} ({2})".format(task.state_pretty_str(), LOG_FAIL_STR, task.returncode()), last=True);
             self._tasks_lock.release()
 
         self._service.TaskStateChanged(task.state(), task.id(), task.pwd(), task.cmdline(), task.time())
