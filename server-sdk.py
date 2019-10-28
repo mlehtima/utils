@@ -24,6 +24,7 @@ ERROR_STR           = "\x1b[31m{}\x1b[39m"
 WARN_STR            = "\x1b[33m{}\x1b[39m"
 LOG_STATE_STR       = "\x1b[33m({0:>3})\x1b[39m [\x1b[32m{1}\x1b[39m] {2}"
 LOG_SUCCESS_STR     = "\x1b[32mSUCCESS\x1b[39m"
+LOG_CANCEL_STR      = "\x1b[33mCANCEL\x1b[39m"
 LOG_FAIL_STR        = "\x1b[31mFAIL\x1b[39m"
 
 class WorkerPrinter():
@@ -419,6 +420,10 @@ class TaskManager():
         if task.state() == Task.STARTING:
             self._printer.reset()
             self._printer.println(task.state_pretty_str())
+
+        elif task.state() == Task.CANCEL:
+            # Cancel state is reached with _tasks_lock acquired
+            self._print_and_remove(task, "{0}  {1}".format(task.state_pretty_str(), LOG_CANCEL_STR));
 
         elif task.state() == Task.DONE:
             self._tasks_lock.acquire()
