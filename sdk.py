@@ -63,6 +63,12 @@ def sdk_method(method_name):
 def quit():
     sdk_method("Quit")()
 
+def set_debug(enabled):
+    s = False
+    if enabled:
+        s = True
+    sdk_method("Debug")(s)
+
 def print_tasks(clear=False, print_empty=False):
     if clear:
         # not best but shortest solution for now
@@ -385,6 +391,9 @@ def main():
 
     elif cmd == "reset":
         reset_task_ids()
+
+    elif sys_args1("--debug"):
+        set_debug(sys_int_val(2, 1))
 
     elif len(sys.argv) > 1:
         run_cmd(os.getcwd(), sys.argv[1:])
