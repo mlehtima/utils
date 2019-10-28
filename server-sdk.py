@@ -400,9 +400,9 @@ class TaskManager():
         #self._printer.process("\x1b[33m({0})\x1b[39m {1}".format(task.id(), line))
 
     # return first task of task_type
-    def _find_task(self, task_type):
+    def _find_task(self, task_type, background=False):
         for task in self._tasks:
-            if task.state() == task_type:
+            if task.state() == task_type and task.background() == background:
                 return task
         return None
 
@@ -411,9 +411,10 @@ class TaskManager():
         self._printer.println(line)
         if last:
             self._printer.end()
-        task = self._find_task(Task.CREATED)
-        if task:
-            self._run_task(task)
+        if not self._find_task(Task.RUNNING):
+            task = self._find_task(Task.CREATED)
+            if task:
+                self._run_task(task)
 
     # called from task thread (task lock held)
     def _task_state_changed(self, task):
