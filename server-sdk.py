@@ -56,6 +56,9 @@ class WorkerPrinter():
     def _print(self, line):
         self._queue.put(line)
 
+    def set_debug(self, enabled):
+        self._debug_enabled = enabled
+
     def debug_enabled(self):
         return self._debug_enabled
 
@@ -326,7 +329,7 @@ class TaskManager():
         self._last_pwd = pwd
         self._last_cmdline = cmdline
         self._last_background = background
-        self._printer.debug("{}task added".format("background " if task.background() else ""))
+        self._printer.debug("({0}) {1}task added".format(task.id(), "background " if task.background() else ""))
         self._service.TaskStateChanged(task.state(), task.id(), task.pwd(), task.cmdline(), task.time())
         return task.id()
 
@@ -415,7 +418,7 @@ class TaskManager():
     # called from task thread (task lock held)
     def _task_state_changed(self, task):
         if self._printer.debug_enabled():
-            self._printer.debug("task \"{}\" state {}".format(task.cmdline(), task.state()))
+            self._printer.debug("({0}) task \"{1}\" state {2}".format(task.id(), task.cmdline(), task.state()))
 
         if task.state() == Task.STARTING:
             self._printer.reset()
@@ -506,6 +509,10 @@ class Service(dbus.service.Object):
     def Quit(self):
         self._manager.cancel_all()
         self._loop.quit()
+
+    @dbus.service.method(SERVICE_NAME, in_signature='b', out_signature='')
+    def Debug(self, enabled):
+        self._manager._printer.set_debug(enabled)
 
     @dbus.service.signal(SERVICE_NAME)
     def TaskStateChanged(self, new_state, task_id, task_pwd, task_cmd, duration):
