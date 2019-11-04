@@ -5,7 +5,7 @@ TAG_ANNOTATE=
 NEW_PREFIX=
 
 if [ "$1" == "--autocomplete" ]; then
-    echo -e "-1\n--major\n-2\n--minor\n-3\n--micro\n-g\n--git\n-m\n--message\n-a\n--annotate\n-p\n--prefix"
+    echo -e "-1\n--major\n-2\n--minor\n-3\n--micro\n-4\n--patch\n-g\n--git\n-m\n--message\n-a\n--annotate\n-p\n--prefix"
     exit 0
 fi
 
@@ -27,13 +27,18 @@ fi
 current=${current_full#$current_prefix}
 current=${current%+git$current_git}
 
-current_major=$(echo "$current" | cut -d. -f1)
-current_minor=$(echo "$current" | cut -d. -f2)
-current_micro=$(echo "$current" | cut -d. -f3)
+if [[ "$current" =~ '.' ]]; then
+    current_major=$(echo "$current" | cut -d. -f1)
+    current_minor=$(echo "$current" | cut -d. -f2)
+    current_micro=$(echo "$current" | cut -d. -f3)
+    current_patch=$(echo "$current" | cut -d. -f4)
+else
+    current_major=$current
+fi
 
 parts=$(echo "$current_tag" | grep -o '\.' | wc -l)
 
-#echo "full '$current_full' ($parts) prefix '$current_prefix' major '$current_major' minor '$current_minor' micro '$current_micor' git '$current_git'"
+#echo "full '$current_full' ($parts) prefix '$current_prefix' major '$current_major' minor '$current_minor' micro '$current_micro' patch '$current_patch' git '$current_git'"
 
 while [ $# -gt 0 ]; do
     case "$1" in
@@ -48,6 +53,7 @@ while [ $# -gt 0 ]; do
             if [ -n "$current_git" ]; then
                 current_git=1
             fi
+            current_patch=
             ;;
         -2|--minor)
             ((++current_minor))
@@ -57,9 +63,29 @@ while [ $# -gt 0 ]; do
             if [ -n "$current_git" ]; then
                 current_git=1
             fi
+            current_patch=
             ;;
         -3|--micro)
             ((++current_micro))
+            if [ -z "$current_minor" ]; then
+                current_minor=0
+            fi
+            if [ -n "$current_git" ]; then
+                current_git=1
+            fi
+            current_patch=
+            ;;
+        -4|--patch)
+            if [ -z "$current_patch" ]; then
+                current_patch=0
+            fi
+            ((++current_patch))
+            if [ -z "$current_minor" ]; then
+                current_minor=0
+            fi
+            if [ -z "$current_micro" ]; then
+                current_micro=0
+            fi
             if [ -n "$current_git" ]; then
                 current_git=1
             fi
@@ -90,6 +116,9 @@ if [ -n "$current_minor" ]; then
 fi
 if [ -n "$current_micro" ]; then
     new_tag=$new_tag.$current_micro
+fi
+if [ -n "$current_patch" ]; then
+    new_tag=$new_tag.$current_patch
 fi
 if [ -n "$current_git" ]; then
     new_tag=$new_tag+git$current_git
