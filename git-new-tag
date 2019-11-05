@@ -2,7 +2,7 @@
 
 VERSION="1.0.0"
 VERSION_DATE="04/11/2019"
-GIT_NEW_TAG_MANPATH="/usr/local/share/man/man1/git-new-tag.1.gz"
+GIT_NEW_TAG_MAN_PATH="/usr/local/share/man/man1"
 TAG_MSG_MSG=
 TAG_ANNOTATE=
 NEW_PREFIX=
@@ -14,7 +14,7 @@ manpage_option() {
     echo -e ".PP\n${short//-/\\-}, ${long//-/\\-}\n.RS 4\n${description//-/\\-}\n.RE"
 }
 
-manpage() {
+_manpage() {
     echo ".TH GIT\-NEW\-TAG 1 \"$VERSION_DATE\" \"$VERSION\" \"Git Manual\""
     echo '
 .SH NAME
@@ -55,16 +55,16 @@ case $1 in
         exit 0
         ;;
     --manpage)
-        manpage
+        _manpage
         exit 0
         ;;
     --install-manpage)
         shift
         if [ -n "$1" ]; then
-            GIT_NEW_TAG_MANPATH="$1"
+            GIT_NEW_TAG_MAN_PATH="$1"
         fi
-        manpage | gzip > /tmp/git-new-tag.1.gz
-        sudo install -v -D -m0644 /tmp/git-new-tag.1.gz "$GIT_NEW_TAG_MANPATH"
+        _manpage | gzip > /tmp/git-new-tag.1.gz
+        install -v -D -m0644 /tmp/git-new-tag.1.gz "$GIT_NEW_TAG_MAN_PATH"/git-new-tag.1.gz
         rm -f /tmp/git-new-tag.1.gz
         exit 0
         ;;
