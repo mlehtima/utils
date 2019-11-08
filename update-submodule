@@ -1,6 +1,6 @@
 #!/bin/bash
 
-script_version=5
+script_version=6
 
 PRINT_RED='\033[0;31m'
 PRINT_GREEN='\033[0;32m'
@@ -15,6 +15,9 @@ OPT_SCAN_REGEX_ALL=".*"
 GLOBAL_CONFIG="$HOME/.config/update-submodule.conf"
 PER_REPOSITORY_CONFIG=".git/update-submodule.conf"
 
+# Can be set from global configuration
+OPT_SIGNOFF=
+
 opt_force_branch=0
 opt_force_remote=0
 opt_force_subject=0
@@ -26,7 +29,6 @@ opt_submodule=
 opt_scan="$OPT_SCAN_FULL"
 opt_scan_regex="$OPT_SCAN_REGEX_TAG"
 opt_reverse=
-opt_signoff=
 opt_format="$OPT_FORMAT_DEFAULT"
 all_good=1
 
@@ -92,6 +94,7 @@ handle_repository() {
     local subject_line=
     local temp_tag=
     local temp_commit=
+    local _signoff=
 
     if [ ! -d "$repository" ]; then
         print_error "Skipping $repository (dir doesn't exist?)"
@@ -205,7 +208,10 @@ handle_repository() {
         fi
 
         run_cmd git add $submodule_name
-        run_cmd git commit $opt_signoff -t "$temp_commit"
+        if [ -n "$OPT_SIGNOFF" ]; then
+            _signoff="--signoff"
+        fi
+        run_cmd git commit $_signoff -t "$temp_commit"
         rm -f "$temp_commit"
 
     leave_dir "$repository"
@@ -327,7 +333,7 @@ while [ $# -gt 0 ]; do
             opt_format="$1"
             ;;
         --signoff)
-            opt_signoff="--signoff"
+            OPT_SIGNOFF="1"
             ;;
         --autocomplete)
             echo "-h --help -v --verbose --version -b --branch -r --remote -s --submodule --subject --use-subject --scan --match --reverse --format --signoff"
