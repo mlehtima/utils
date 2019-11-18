@@ -82,7 +82,7 @@ def print_tasks(clear=False, print_empty=False):
     tasks = sdk_method("Tasks")()
     if len(tasks) > 0:
         print("{0:6s} {1:12s} {2:s}".format("[id/s]", "[path]", "[cmdline]"))
-        for idno, state, full_path, cmd in tasks:
+        for idno, state, full_path, cmd, ret in tasks:
             run_path = ''.join(full_path.split("/")[-1:])
             if len(run_path) > 12:
                 run_path = ".." + run_path[-10:]
@@ -176,7 +176,7 @@ def follow_task_hack(idno):
 def follow_task(idno):
     if idno < 0:
         tasks = sdk_method("Tasks")()
-        for idn, state, full_path, cmd in tasks:
+        for idn, state, full_path, cmd, ret in tasks:
             if state == STATE_RUNNING and idn > idno:
                 idno = idn
         if idno < 0:
