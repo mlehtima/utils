@@ -168,26 +168,32 @@ def set_stdout_utf8():
     import codecs
     sys.stdout = codecs.getwriter('utf8')(sys.stdout)
 
-def follow_task_hack(idno):
-    # This is stupid workaround, but couldn't figure out how to get
-    # mainloop running again for the TaskFollower.
-    os.execlp("dk-tasks", "dk-tasks", "--follow", str(idno))
+# This is stupid workaround, but couldn't figure out how to get
+# mainloop running again for the TaskFollower.
+def follow_task_hack_execlp(idno):
+    os.execlp("dk-tasks", "dk-tasks", "--follow-hack", str(idno))
 
-def follow_task(idno):
-    if idno < 0:
-        tasks = sdk_method("Tasks")()
-        for idn, state, full_path, cmd, ret in tasks:
-            if state == STATE_RUNNING and idn > idno:
-                idno = idn
-        if idno < 0:
-            sys.stderr.write("No running tasks found.\n")
-            sys.stderr.flush()
-            sys.exit(1)
-        follow_task_hack(idno)
+def follow_task_hack(idno):
     set_stdout_utf8()
     t = TaskFollower(idno)
     t.run()
     sys.exit(t.retno())
+
+def follow_task(idno):
+    if idno > 0:
+        idn, state, full_path, cmd, ret = sdk_method("Task")(idno)
+        if idn < 0:
+            log_err("No task with id {} found.".format(idno))
+        if state != STATE_RUNNING:
+            log_err("Task {0} [{1}] already done with return code {2}.".format(idn, cmd, ret), code=0)
+    else:
+        tasks = sdk_method("Tasks")()
+        for idn, state, full_path, cmd, ret in tasks:
+            if state == STATE_RUNNING and idn > idno:
+                idno = idn
+        if idno == 0:
+            log_err("No running tasks found.")
+    follow_task_hack_execlp(idno)
 
 def log(idno):
     found, text = sdk_method("Log")(idno)
@@ -217,7 +223,7 @@ def run_cmd(pwd, cmd, background=False):
     follow = follow_created_task(cmd)
     r = sdk_method("AddTask")(pwd, cmd, background)
     if r > 0 and follow:
-        follow_task_hack(r)
+        follow_task_hack_execlp(r)
 
 def get_default_target():
     default = None
@@ -344,7 +350,9 @@ def main():
         elif sys_args1("--monitor", "-m"):
             monitor_tasks()
         elif sys_args1("--follow", "-f"):
-            follow_task(sys_int_val(2, default=-1))
+            follow_task(sys_int_val(2, default=0))
+        elif sys_args1("--follow-hack"):
+            follow_task_hack(sys_int_val(2))
         elif sys_args1("--log", "-l"):
             log(sys_int_val(2))
         else:
