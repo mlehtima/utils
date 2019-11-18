@@ -55,6 +55,12 @@ def state_short_str(state):
         return "f"
     return "UNKNOWN"
 
+def log_err(msg, exit=True, code=1):
+    sys.stderr.write("{}\n".format(msg))
+    sys.stderr.flush()
+    if exit:
+        sys.exit(code)
+
 def sdk_method(method_name):
     bus = dbus.SessionBus()
     service = bus.get_object(SERVER_NAME, SERVER_PATH)
@@ -125,8 +131,7 @@ class TaskFollower(dbus.service.Object):
         if self._m("FollowTask")(self._idno, self._name.get_name()):
             self._running = True
         else:
-            sys.stderr.write("No task with id {}.\n".format(self._idno))
-            sys.stderr.flush()
+            log_err("No task with id {}.".format(self._idno), exit=False)
             self._retno = 1
             self._loop.quit()
 
@@ -191,9 +196,7 @@ def log(idno):
         sys.stdout.write(text)
         sys.stdout.flush()
     else:
-        sys.stderr.write("No task with id {}.\n".format(idno))
-        sys.stderr.flush()
-        sys.exit(1)
+        log_err("No task with id {}.".format(idno))
 
 def cancel(idno):
     if idno < 0:
@@ -324,9 +327,7 @@ def sys_int_val(pos, default=None):
             r = False
 
     if not r:
-        sys.stderr.write("Integer argument required.\n")
-        sys.stderr.flush()
-        sys.exit(1)
+        log_err("Integer argument required.")
     return i
 
 def main():
