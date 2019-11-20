@@ -1,0 +1,28 @@
+_update-manifest()
+{
+    local cur opts
+    _init_completion -s || return
+
+    COMPREPLY=()
+    cur="${COMP_WORDS[COMP_CWORD]}"
+
+    case "${cur}" in
+        -*)
+            opts="$(update-manifest --autocomplete)"
+            COMPREPLY=($(compgen -W "${opts}" -- ${cur}))
+            return 0
+            ;;
+        *)
+            opts="$($COMP_LINE ${cur} --autocomplete-project)"
+            if [ $? -eq 0 ]; then
+                COMPREPLY=($(compgen -W "${opts}" -- ${cur}))
+                return 0
+            fi
+            ;;
+    esac
+
+    _filedir -d
+
+    return 0
+}
+complete -F _update-manifest update-manifest
