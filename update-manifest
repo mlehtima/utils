@@ -1,0 +1,281 @@
+#!/bin/bash
+
+PRINT_RED='\033[0;31m'
+PRINT_GREEN='\033[0;32m'
+PRINT_NC='\033[0m'
+
+GLOBAL_CONFIG="$HOME/.config/update-manifest.conf"
+
+REMOTE="origin"
+BRANCH="master"
+COMMIT_OPTIONS=
+
+print_error() {
+    echo -e "${PRINT_RED}$@${PRINT_NC}"
+}
+
+print_debug() {
+    if [ "$DEBUG" == "1" ]; then
+        echo -e "${PRINT_GREEN}$@${PRINT_NC}" >&2
+    fi
+}
+
+print_normal() {
+    echo -e "${PRINT_GREEN}$@${PRINT_NC}" >&1
+}
+
+run_cmd() {
+    print_debug "$ $@"
+    "$@"
+}
+
+all_good=1
+check_bin() {
+    while [ $# -gt 0 ]; do
+        which "$1" 1>/dev/null 2>&1
+        if [ ! $? -eq 0 ]; then
+            print_error "$1 not found in \$PATH"
+            all_good=0
+        fi
+        shift
+    done
+}
+
+enter_dir() {
+    print_debug "# Enter $1"
+    pushd "$1" 1>/dev/null 2>&1
+}
+
+leave_dir() {
+    print_debug "# Leave $1"
+    popd 1>/dev/null 2>&1
+}
+
+get_field_value() {
+    local filename="$1"
+    local tag="$2"
+    local field="$3"
+    local match="$4"
+
+    grep -E "<${tag}" "${filename}" | grep "${match}" | awk -F "${field}=" '{ print $2 }' | awk -F '"' '{ print $2 }'
+}
+
+handle_project() {
+    local workdir="$1"
+    local temp_commit="$2"
+    local manifest_dir="$3"
+    local tagged_manifest="${manifest_dir}/tagged-manifest.xml"
+    local default_remote="$4"
+    local project="$5"
+    local project_path="${workdir}/${project}"
+    local _ret=2
+
+    mkdir -p "$project_path"
+
+    print_debug "Handle project $project"
+
+    local custom_remote="$(get_field_value $tagged_manifest project remote "name=\"${project}\"")"
+    local current_sha="$(get_field_value $tagged_manifest project revision "name=\"${project}\"")"
+    if [ -z "$current_sha" ]; then
+        print_error "Could not find project with name '$project'"
+        return $_ret
+    fi
+
+    local use_remote="$default_remote"
+    if [ -n "$custom_remote" ]; then
+        use_remote="$custom_remote"
+    fi
+
+    print_debug "Use remote '$use_remote'"
+
+    local repo_url="$(get_field_value $tagged_manifest remote fetch "name=\"${use_remote}\"")/${project}"
+    print_debug "Project url: $repo_url"
+
+    run_cmd git clone -q "$repo_url" "$project_path"
+    enter_dir "$project_path"
+        print_debug "Current sha is ${current_sha}"
+        local latest_sha="$(git show --format="format:%H")"
+        print_debug "Latest sha is ${latest_sha}"
+        if [ "$current_sha" == "$latest_sha" ]; then
+            print_normal "No changes in project $project"
+            _ret=1
+        else
+            echo -e "\nProject ${project}:" >> "$temp_commit"
+            run_cmd git log --format="%s%n%b" --no-merges "${current_sha}.." | grep -E "\[.*\].*" | sed -e "s/\[\(.*\)\]/\[${project}\] \1:/" | awk "{ print \$0 }" >> "$temp_commit"
+            run_cmd sed -i -e "/name=\"${project}\"/ s/revision=\"${current_sha}\"/revision=\"${latest_sha}\"/" "$tagged_manifest"
+            _ret=0
+        fi
+
+    leave_dir "$project_path"
+    rm -rf "${project_path}"
+
+    return $_ret
+}
+
+handle_repository() {
+    local repository="$1"
+    local repository_dir="$(realpath "${repository}")"
+    local tagged_manifest="${repository_dir}/tagged-manifest.xml"
+    local workdir="/tmp/manifest_update_$(date +%s)"
+    local temp_commit=
+    local current_branch=
+    local update_branch=
+    local signoff=
+    local lines_changed=
+    local default_remote=
+    local default_revision=
+    shift
+
+    enter_dir "$repository_dir"
+
+        lines_changed="$(git diff | wc -l)"
+        if [ "$lines_changed" -gt 0 ]; then
+            print_error "$repository contains local changes."
+            leave_dir "$repository_dir"
+            return 1
+        fi
+
+        if [ ! -e "${tagged_manifest}" ]; then
+            print_error "$repository doesn't have tagged-manifest.xml."
+            leave_dir "$repository_dir"
+            return 1
+        fi
+
+        default_remote="$(get_field_value $tagged_manifest default remote)"
+        if [ -n "$default_remote" ]; then
+            default_revision="$(get_field_value $tagged_manifest default revision)"
+        fi
+
+        print_debug "Default remote:'$default_remote' revision: '$default_revision'"
+
+        current_branch="$(git branch | grep -e '^\*' | awk '{ print $2 }')"
+        update_branch="${BRANCH}_update_manifest_$(date +%s)"
+
+        # Make sure we are in latest commit
+        run_cmd git fetch $REMOTE
+        run_cmd git checkout remotes/$REMOTE/$BRANCH -b $update_branch
+        if [ ! $? -eq 0 ]; then
+            print_error "Cannot switch to $update_branch (tracking remotes/$REMOTE/$BRANCH)"
+            leave_dir "$repository"
+            return 1
+        fi
+
+        mkdir -p "$workdir"
+        if [ ! -d "$workdir" ]; then
+            print_error abort
+            exit 1
+        fi
+        temp_commit="$(mktemp)"
+        echo "REMOVE THIS LINE! (this commit is for $repository)" >> "$temp_commit"
+        echo "Update manifest." >> "$temp_commit"
+
+        local num_changed=0
+        while [ $# -gt 0 ]; do
+            handle_project "$workdir" "$temp_commit" "$repository_dir" "$default_remote" "$1"
+            case $? in
+                0)
+                    ((++num_changed))
+                    ;;
+                1)
+                    ;;
+                2)
+                    print_error "Revert repository to original state."
+                    run_cmd git reset --hard
+                    run_cmd git checkout "$current_branch"
+                    run_cmd git branch -D "$update_branch"
+                    rm -f "$temp_commit"
+                    rm -rf "$workdir"
+                    exit 1
+                    ;;
+            esac
+
+            shift
+        done
+
+        if [ $num_changed -gt 0 ]; then
+            run_cmd git add "$tagged_manifest"
+            run_cmd git commit $COMMIT_OPTIONS -t "$temp_commit"
+        else
+            print_error "No changes in project(s). Revert repository to original state."
+            run_cmd git checkout "$current_branch"
+            run_cmd git branch -D "$update_branch"
+        fi
+
+        rm -f "$temp_commit"
+        rm -rf "$workdir"
+
+    leave_dir "$repository_dir"
+}
+
+dir=
+projects=
+
+check_bin git mktemp awk grep sed
+if [ ! $all_good -eq 1 ]; then
+    echo "Required bits missing. Abort."
+    exit 1
+fi
+
+if [ -f "$GLOBAL_CONFIG" ]; then
+    source "$GLOBAL_CONFIG"
+fi
+
+while [ $# -gt 0 ]; do
+    case $1 in
+        -v|--verbose)
+            DEBUG=1
+            ;;
+        -b|--branch)
+            shift
+            BRANCH=$1
+            ;;
+        -r|--remote)
+            shift
+            REMOTE=$1
+            ;;
+        --signoff)
+            COMMIT_OPTIONS="$COMMIT_OPTIONS --signoff"
+            ;;
+        --autocomplete)
+            echo "-h --help -v --verbose -b --branch -r --remote --signoff"
+            exit 0
+            ;;
+        --autocomplete-project)
+            if [[ -n "$dir" && -f "$dir/tagged-manifest.xml" ]]; then
+                shift
+                get_field_value "$dir/tagged-manifest.xml" project name | grep -e "^$1"
+                exit 0
+            fi
+            exit 1
+            ;;
+        -*)
+            echo "Unknown argument '$1'"
+            exit 1
+            ;;
+        *)
+            if [ -z "$dir" ]; then
+                dir="$1"
+            else
+                projects="$projects $1"
+            fi
+            ;;
+    esac
+    shift
+done
+
+if [ -z "$dir" ]; then
+    echo print help
+    exit 0
+fi
+
+if [ ! -d "$dir" ]; then
+    print_error "Directory $dir doesn't exits."
+    exit 1
+fi
+
+if [ -z "$projects" ]; then
+    print_error "No projects defined."
+    exit 1
+fi
+
+handle_repository "$dir" $projects
