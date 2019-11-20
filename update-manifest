@@ -1,55 +1,15 @@
 #!/bin/bash
 
-PRINT_RED='\033[0;31m'
-PRINT_GREEN='\033[0;32m'
-PRINT_NC='\033[0m'
+script_version=1
+
+SCRIPTPATH="$(dirname "`readlink -f $0`")"
+source "$SCRIPTPATH/update-common.sh" || exit 1
 
 GLOBAL_CONFIG="$HOME/.config/update-manifest.conf"
 
 REMOTE="origin"
 BRANCH="master"
 COMMIT_OPTIONS=
-
-print_error() {
-    echo -e "${PRINT_RED}$@${PRINT_NC}"
-}
-
-print_debug() {
-    if [ "$DEBUG" == "1" ]; then
-        echo -e "${PRINT_GREEN}$@${PRINT_NC}" >&2
-    fi
-}
-
-print_normal() {
-    echo -e "${PRINT_GREEN}$@${PRINT_NC}" >&1
-}
-
-run_cmd() {
-    print_debug "$ $@"
-    "$@"
-}
-
-all_good=1
-check_bin() {
-    while [ $# -gt 0 ]; do
-        which "$1" 1>/dev/null 2>&1
-        if [ ! $? -eq 0 ]; then
-            print_error "$1 not found in \$PATH"
-            all_good=0
-        fi
-        shift
-    done
-}
-
-enter_dir() {
-    print_debug "# Enter $1"
-    pushd "$1" 1>/dev/null 2>&1
-}
-
-leave_dir() {
-    print_debug "# Leave $1"
-    popd 1>/dev/null 2>&1
-}
 
 get_field_value() {
     local filename="$1"
@@ -194,7 +154,7 @@ handle_repository() {
 
         if [ $num_changed -gt 0 ]; then
             run_cmd git add "$tagged_manifest"
-            run_cmd git commit $COMMIT_OPTIONS -t "$temp_commit"
+            run_cmd git commit -v $COMMIT_OPTIONS -t "$temp_commit"
         else
             print_error "No changes in project(s). Revert repository to original state."
             run_cmd git checkout "$current_branch"
@@ -211,17 +171,25 @@ dir=
 projects=
 
 check_bin git mktemp awk grep sed
-if [ ! $all_good -eq 1 ]; then
-    echo "Required bits missing. Abort."
-    exit 1
-fi
 
 if [ -f "$GLOBAL_CONFIG" ]; then
     source "$GLOBAL_CONFIG"
 fi
 
+print_help() {
+    echo "help: TODO"
+}
+
 while [ $# -gt 0 ]; do
     case $1 in
+        -h|--help)
+            print_help
+            exit 0
+            ;;
+        --version)
+            print_version
+            exit 0
+            ;;
         -v|--verbose)
             DEBUG=1
             ;;
@@ -237,7 +205,7 @@ while [ $# -gt 0 ]; do
             COMMIT_OPTIONS="$COMMIT_OPTIONS --signoff"
             ;;
         --autocomplete)
-            echo "-h --help -v --verbose -b --branch -r --remote --signoff"
+            echo "-h --help --version -v --verbose -b --branch -r --remote --signoff"
             exit 0
             ;;
         --autocomplete-project)
@@ -264,7 +232,7 @@ while [ $# -gt 0 ]; do
 done
 
 if [ -z "$dir" ]; then
-    echo print help
+    print_help
     exit 0
 fi
 
