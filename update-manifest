@@ -1,6 +1,6 @@
 #!/bin/bash
 
-script_version=1
+script_version=2
 
 SCRIPTPATH="$(dirname "`readlink -f $0`")"
 source "$SCRIPTPATH/update-common.sh" || exit 1
@@ -10,6 +10,9 @@ GLOBAL_CONFIG="$HOME/.config/update-manifest.conf"
 REMOTE="origin"
 BRANCH="master"
 COMMIT_OPTIONS=
+DO_FETCH=1
+DO_CHECKS=1
+FORCE_UPSTREAM=
 
 get_field_value() {
     local filename="$1"
@@ -36,7 +39,13 @@ handle_project() {
 
     local custom_remote="$(get_field_value $tagged_manifest project remote "name=\"${project}\"")"
     local current_sha="$(get_field_value $tagged_manifest project revision "name=\"${project}\"")"
-    local use_upstream="$(get_field_value $tagged_manifest project upstream "name=\"${project}\"")"
+    local orig_upstream="$(get_field_value $tagged_manifest project upstream "name=\"${project}\"")"
+    local use_upstream=
+    if [ -n "$FORCE_UPSTREAM" ]; then
+        use_upstream="$FORCE_UPSTREAM"
+    else
+        use_upstream="$orig_upstream"
+    fi
     if [ -z "$current_sha" ]; then
         print_error "Could not find project with name '$project'"
         return $_ret
@@ -64,6 +73,9 @@ handle_project() {
             echo -e "\nProject ${project}:" >> "$temp_commit"
             run_cmd git log --format="%s%n%b" --no-merges "${current_sha}.." | grep -E "\[.*\].*" | sed -e "s/\[\(.*\)\]/\[${project}\] \1:/" | awk "{ print \$0 }" >> "$temp_commit"
             run_cmd sed -i -e "/name=\"${project}\"/ s/revision=\"${current_sha}\"/revision=\"${latest_sha}\"/" "$tagged_manifest"
+            if [ -n "$FORCE_UPSTREAM" ]; then
+                run_cmd sed -i -e "/name=\"${project}\"/ s/upstream=\"${orig_upstream}\"/upstream=\"${use_upstream}\"/" "$tagged_manifest"
+            fi
             _ret=0
         fi
 
@@ -77,6 +89,7 @@ handle_repository() {
     local repository="$1"
     local repository_dir="$(realpath "${repository}")"
     local tagged_manifest="${repository_dir}/tagged-manifest.xml"
+    local default_manifest="${repository_dir}/default.xml"
     local workdir="/tmp/manifest_update_$(date +%s)"
     local temp_commit=
     local current_branch=
@@ -90,10 +103,12 @@ handle_repository() {
     enter_dir "$repository_dir"
 
         lines_changed="$(git diff | wc -l)"
-        if [ "$lines_changed" -gt 0 ]; then
-            print_error "$repository contains local changes."
-            leave_dir "$repository_dir"
-            return 1
+        if [ $DO_CHECKS -eq 1 ]; then
+            if [ "$lines_changed" -gt 0 ]; then
+                print_error "$repository contains local changes."
+                leave_dir "$repository_dir"
+                return 1
+            fi
         fi
 
         if [ ! -e "${tagged_manifest}" ]; then
@@ -112,8 +127,10 @@ handle_repository() {
         current_branch="$(git branch | grep -e '^\*' | awk '{ print $2 }')"
         update_branch="${BRANCH}_update_manifest_$(date +%s)"
 
-        # Make sure we are in latest commit
-        run_cmd git fetch $REMOTE
+        if [ $DO_FETCH -eq 1 ]; then
+            # Make sure we are in latest commit
+            run_cmd git fetch $REMOTE
+        fi
         run_cmd git checkout remotes/$REMOTE/$BRANCH -b $update_branch
         if [ ! $? -eq 0 ]; then
             print_error "Cannot switch to $update_branch (tracking remotes/$REMOTE/$BRANCH)"
@@ -141,7 +158,7 @@ handle_repository() {
                     ;;
                 2)
                     print_error "Revert repository to original state."
-                    run_cmd git reset --hard
+                    run_cmd git checkout -- "$tagged_manifest"
                     run_cmd git checkout "$current_branch"
                     run_cmd git branch -D "$update_branch"
                     rm -f "$temp_commit"
@@ -154,6 +171,9 @@ handle_repository() {
         done
 
         if [ $num_changed -gt 0 ]; then
+            if [ "$(git status --porcelain "$default_manifest" | awk '{ print $1 }')" == "M" ]; then
+                run_cmd git add "$default_manifest"
+            fi
             run_cmd git add "$tagged_manifest"
             run_cmd git commit -v $COMMIT_OPTIONS -t "$temp_commit"
         else
@@ -178,7 +198,24 @@ if [ -f "$GLOBAL_CONFIG" ]; then
 fi
 
 print_help() {
-    echo "help: TODO"
+    echo "Usage: $(basename $0) [OPTION] <tagged-manifest-repository> <projects>"
+    echo ""
+    echo "Update tagged-manifest.xml with latest project versions. Changelog containing"
+    echo "changes from all updated projects is generated for the commit."
+    echo "Defaults for REMOTE, BRANCH and COMMIT_OPTIONS can be set in global config"
+    echo "file $GLOBAL_CONFIG."
+    echo ""
+    echo "  -h, --help          This help."
+    echo "  -v, --verbose       Print all commands and additional debugs."
+    echo "  -r, --remote        What remote to use for updates (default $REMOTE)."
+    echo "  -b, --branch        What branch to use for updates (default $BRANCH)."
+    echo "  -n, --no-fetch      Do not run git fetch or check for repository consistency"
+    echo "                        prior to commit generation."
+    echo "  -u, --use-upstream  Define upstream to use in projects overriding what is"
+    echo "                        currently defined in tagged-manifest.xml"
+    echo "  --signoff           Add Signed-off-by line by the committer at the end of the"
+    echo "                        commit log message."
+    echo ""
 }
 
 while [ $# -gt 0 ]; do
@@ -202,11 +239,19 @@ while [ $# -gt 0 ]; do
             shift
             REMOTE=$1
             ;;
+        -n|--no-fetch)
+            DO_CHECKS=0
+            DO_FETCH=0
+            ;;
+        -u|--use-upstream)
+            shift
+            FORCE_UPSTREAM="$1"
+            ;;
         --signoff)
             COMMIT_OPTIONS="$COMMIT_OPTIONS --signoff"
             ;;
         --autocomplete)
-            echo "-h --help --version -v --verbose -b --branch -r --remote --signoff"
+            echo "-h --help --version -v --verbose -b --branch -r --remote -n --no-fetch -u --use-upstream --signoff"
             exit 0
             ;;
         --autocomplete-project)
