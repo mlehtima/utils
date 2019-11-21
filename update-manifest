@@ -36,6 +36,7 @@ handle_project() {
 
     local custom_remote="$(get_field_value $tagged_manifest project remote "name=\"${project}\"")"
     local current_sha="$(get_field_value $tagged_manifest project revision "name=\"${project}\"")"
+    local use_upstream="$(get_field_value $tagged_manifest project upstream "name=\"${project}\"")"
     if [ -z "$current_sha" ]; then
         print_error "Could not find project with name '$project'"
         return $_ret
@@ -51,10 +52,10 @@ handle_project() {
     local repo_url="$(get_field_value $tagged_manifest remote fetch "name=\"${use_remote}\"")/${project}"
     print_debug "Project url: $repo_url"
 
-    run_cmd git clone -q "$repo_url" "$project_path"
+    run_cmd git clone -q -b "$use_upstream" "$repo_url" "$project_path"
     enter_dir "$project_path"
         print_debug "Current sha is ${current_sha}"
-        local latest_sha="$(git show --format="format:%H")"
+        local latest_sha="$(git show --format="format:%H" | head -n1)"
         print_debug "Latest sha is ${latest_sha}"
         if [ "$current_sha" == "$latest_sha" ]; then
             print_normal "No changes in project $project"
