@@ -1,0 +1,5 @@
+source /usr/share/bash-completion/completions/git
+_git_run_local ()
+{
+    __gitcomp_nl "$(git run-local --autocomplete)"
+}
