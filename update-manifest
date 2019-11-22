@@ -1,6 +1,6 @@
 #!/bin/bash
 
-script_version=2
+script_version=3
 
 SCRIPTPATH="$(dirname "`readlink -f $0`")"
 source "$SCRIPTPATH/update-common.sh" || exit 1
@@ -10,7 +10,7 @@ GLOBAL_CONFIG="$HOME/.config/update-manifest.conf"
 REMOTE="origin"
 BRANCH="master"
 COMMIT_OPTIONS=
-DO_FETCH=1
+LOCAL_BRANCH=0
 DO_CHECKS=1
 FORCE_UPSTREAM=
 
@@ -70,8 +70,11 @@ handle_project() {
             print_normal "No changes in project $project"
             _ret=1
         else
+            local change_path="$(get_field_value $tagged_manifest project path "name=\"${project}\"")"
+            # Escape forward slashes
+            change_path="${change_path//\//\\\/}"
             echo -e "\nProject ${project}:" >> "$temp_commit"
-            run_cmd git log --format="%s%n%b" --no-merges "${current_sha}.." | grep -E "\[.*\].*" | sed -e "s/\[\(.*\)\]/\[${project}\] \1:/" | awk "{ print \$0 }" >> "$temp_commit"
+            run_cmd git log --format="%s%n%b" --no-merges "${current_sha}.." | grep -E "\[.*\].*" | sed -e "s/\[\(.*\)\]/\[${change_path}\] \1:/" | awk "{ print \$0 }" >> "$temp_commit"
             run_cmd sed -i -e "/name=\"${project}\"/ s/revision=\"${current_sha}\"/revision=\"${latest_sha}\"/" "$tagged_manifest"
             if [ -n "$FORCE_UPSTREAM" ]; then
                 run_cmd sed -i -e "/name=\"${project}\"/ s/upstream=\"${orig_upstream}\"/upstream=\"${use_upstream}\"/" "$tagged_manifest"
@@ -127,11 +130,13 @@ handle_repository() {
         current_branch="$(git branch | grep -e '^\*' | awk '{ print $2 }')"
         update_branch="${BRANCH}_update_manifest_$(date +%s)"
 
-        if [ $DO_FETCH -eq 1 ]; then
+        local checkout_branch="$BRANCH"
+        if [ $LOCAL_BRANCH -eq 0 ]; then
             # Make sure we are in latest commit
             run_cmd git fetch $REMOTE
+            checkout_branch="remotes/$REMOTE/$checkout_branch"
         fi
-        run_cmd git checkout remotes/$REMOTE/$BRANCH -b $update_branch
+        run_cmd git checkout "$checkout_branch" -b "$update_branch"
         if [ ! $? -eq 0 ]; then
             print_error "Cannot switch to $update_branch (tracking remotes/$REMOTE/$BRANCH)"
             leave_dir "$repository"
@@ -209,8 +214,9 @@ print_help() {
     echo "  -v, --verbose       Print all commands and additional debugs."
     echo "  -r, --remote        What remote to use for updates (default $REMOTE)."
     echo "  -b, --branch        What branch to use for updates (default $BRANCH)."
-    echo "  -n, --no-fetch      Do not run git fetch or check for repository consistency"
-    echo "                        prior to commit generation."
+    echo "  -l, --local         Do not run git fetch and use local repository name as starting"
+    echo "                        point to commit generation."
+    echo "  -n, --no-checks     Do not check for repository consistency prior to commit generation."
     echo "  -u, --use-upstream  Define upstream to use in projects overriding what is"
     echo "                        currently defined in tagged-manifest.xml"
     echo "  --signoff           Add Signed-off-by line by the committer at the end of the"
@@ -235,13 +241,15 @@ while [ $# -gt 0 ]; do
             shift
             BRANCH=$1
             ;;
+        -l|--local)
+            LOCAL_BRANCH=1
+            ;;
         -r|--remote)
             shift
             REMOTE=$1
             ;;
-        -n|--no-fetch)
+        -n|--no-checks)
             DO_CHECKS=0
-            DO_FETCH=0
             ;;
         -u|--use-upstream)
             shift
@@ -251,7 +259,7 @@ while [ $# -gt 0 ]; do
             COMMIT_OPTIONS="$COMMIT_OPTIONS --signoff"
             ;;
         --autocomplete)
-            echo "-h --help --version -v --verbose -b --branch -r --remote -n --no-fetch -u --use-upstream --signoff"
+            echo "-h --help --version -v --verbose -b --branch -l --local -r --remote -n --no-checks -u --use-upstream --signoff"
             exit 0
             ;;
         --autocomplete-project)
