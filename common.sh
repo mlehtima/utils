@@ -71,12 +71,12 @@ check_config() {
             var="$(echo "$var" | cut -d= -f1)"
         fi
 
-        if [ -z "$(eval echo \$$var)" ]; then
+        if [ -z "${!var}" ]; then
             if [ -z "$default" ]; then
                 echo "$(basename $0): Configuration variable $var not defined, abort."
                 exit 2
             else
-                eval "$var=\"$default\""
+                printf -v "$var" %s "$default"
             fi
         fi
 
@@ -383,14 +383,14 @@ handle_options() {
             if [ $? -eq 0 ]; then
                 $__func $__arg
             elif [ -n "$__arg" ]; then
-                eval "${__func}=\"$__arg\""
+                printf -v "$__func" %s "$__arg"
             else
                 local __call_count=1
                 if [ -n "$__func" ]; then
                     __call_count=$__func
                     ((++__call_count))
                 fi
-                eval "$__func=$__call_count"
+                printf -v "$__func" %d $__call_count
             fi
         fi
 
@@ -418,11 +418,11 @@ handle_options_store_to() {
     local __string=
     local __pad=" "
     shift
-    eval __string=\$$__target
+    __string="${!__target}"
     if [ -z "$__string" ]; then
         __pad=""
     fi
-    eval $__target="\"$__string$__pad$@\""
+    printf -v "$__target" %s "$__string$__pad$@"
 }
 
 expect_common_version() {
