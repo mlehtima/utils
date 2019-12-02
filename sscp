@@ -1,0 +1,72 @@
+#!/bin/bash
+
+script_version=1
+
+declare -a _file_list
+_host=
+_host_dir=
+_total_size=0
+_have_pv=0
+if which pv >/dev/null; then
+    _have_pv=1
+fi
+
+print_help() {
+    echo "$(basename $0) v$script_version - Simple scp replacement"
+    echo ""
+    echo "Usage: $(basename $0) <files> user@host:<directory>"
+    if [ $_have_pv -ne 1 ]; then
+        echo ""
+        echo "Improve transfer logging by installing 'pv' to PATH."
+    fi
+}
+
+while [ $# -gt 0 ]; do
+    case "$1" in
+        -h|--help)
+            print_help
+            exit 0
+            ;;
+        *:*)
+            _host="${1%:*}"
+            _host_dir="${1#*:}"
+            if [ -z "$_host_dir" ]; then
+                _host_dir="."
+            fi
+            ;;
+        *)
+            if [ ! -e "$1" ]; then
+                echo "error, file doesn't exist: $1"
+                exit 1
+            fi
+            _rn="$(realpath "$1")"
+            _fn="$(basename "$1")"
+            if [ $_have_pv -eq 1 ]; then
+                ((_total_size+=$(du -b -s "$_rn" | cut -d"	" -f1)))
+            fi
+            _fn_dir="$(realpath "$(dirname "$_rn")")"
+            _file_list+=("-C" "$_fn_dir" "$_fn")
+            ;;
+    esac
+    shift
+done
+
+if [ -z "$_host" ]; then
+    echo "No target host defined."
+    exit 1
+fi
+
+if [ ${#_file_list[@]} -eq 0 ]; then
+    echo "No files to transfer."
+    exit 0
+fi
+
+_progress="cat"
+if [ $_have_pv -eq 1 ]; then
+    _progress="pv -D 1 -s $_total_size"
+fi
+
+tar -c "${_file_list[@]}" | $_progress | ssh -q "$_host" "tar -x -C \"$_host_dir\""
+_ret=$?
+
+exit $_ret
