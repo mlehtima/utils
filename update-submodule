@@ -1,11 +1,12 @@
 #!/bin/bash
 
-script_version=8
+script_version=2019.12.11
 
 SCRIPTPATH="$(dirname "`readlink -f $0`")"
 source "$SCRIPTPATH/update-common.sh" || exit 1
 
 OPT_SUBJECT_DEFAULT="%s: Update submodule."
+OPT_UPDATE_BRANCH_NAME_DEFAULT="update_submodule_%s"
 OPT_FORMAT_DEFAULT="\$0"
 OPT_SCAN_FULL="%s%n%b"
 OPT_SCAN_SUBJECT="%s"
@@ -24,13 +25,28 @@ opt_force_submodule=0
 opt_branch=master
 opt_remote=origin
 opt_subject="$OPT_SUBJECT_DEFAULT"
+opt_update_branch_name="$OPT_UPDATE_BRANCH_NAME_DEFAULT"
 opt_submodule=
-opt_submodule_target=
+opt_submodule_target="HEAD"
 opt_scan="$OPT_SCAN_FULL"
 opt_scan_regex="$OPT_SCAN_REGEX_TAG"
 opt_reverse=
 opt_format="$OPT_FORMAT_DEFAULT"
 all_good=1
+
+process_string() {
+    local str="$1"
+    shift
+    while [ $# -gt 0 ];
+    do
+        local marker="$1"
+        shift
+        local replace="$1"
+        shift
+        str="${str//$marker/$replace}"
+    done
+    echo -n "$str"
+}
 
 handle_repository() {
     local submodule_name=
@@ -41,6 +57,7 @@ handle_repository() {
     local force_subject="$1"            ; shift
     local use_subject="$1"              ; shift
     local submodule_target="$1"         ; shift
+    local update_branch_name="$1"       ; shift
     local force_submodule="$1"          ; shift
     if [ $force_submodule -eq 1 ]; then
         submodule_name="$1"
@@ -119,8 +136,17 @@ handle_repository() {
             return
         fi
 
+        local replace=("%s" "$submodule_name" "%r" "$(basename "$repository")" "%t" "$submodule_target")
+
         current_branch="$(git branch | grep -e '^\*' | awk '{ print $2 }')"
-        update_branch="update_submodule_$(date +%s)"
+        update_branch=$(process_string "$update_branch_name" "${replace[@]}" " " "_")
+        local check_update_branch="$update_branch"
+        local _a=1
+        while [ -n "$(git branch | grep "$check_update_branch\$")" ]; do
+            check_update_branch="$update_branch$_a"
+            ((_a++))
+        done
+        update_branch="$check_update_branch"
 
         # Make sure we are in latest commit
         run_cmd git fetch $use_remote
@@ -143,13 +169,11 @@ handle_repository() {
             run_cmd git tag $temp_tag
             run_cmd git checkout master
             run_cmd git merge origin/master
-            if [ -n "$submodule_target" ]; then
+            if [ "$submodule_target" != "HEAD" ]; then
                 run_cmd git checkout "$submodule_target"
             fi
             echo "REMOVE THIS LINE! (this commit is for $repository)" >> "$temp_commit"
-            subject_line="${use_subject//%s/$submodule_name}"
-            subject_line="${subject_line//%r/`basename "$repository"`}"
-            subject_line="${subject_line//%t/$submodule_target}"
+            subject_line=$(process_string "$use_subject" "${replace[@]}")
             echo -e "$subject_line\n" >> "$temp_commit"
             # This is the beef, create comment lines from submodule commits
             if [[ -n "$opt_scan" && -n "$opt_scan_regex" ]]; then
@@ -185,7 +209,7 @@ handle_repository() {
 check_bin git mktemp awk grep sed
 
 print_help() {
-    echo "Usage: $(basename $0) [OPTION] <repositories>"
+    echo "Usage: $(basename $0) [OPTIONS] <repositories>"
     echo ""
     echo "Update droid-{hal,configs}-device (repository with submodule) style repositories'"
     echo "submodule to latest upstream and generate changelog for the submodule update"
@@ -196,6 +220,14 @@ print_help() {
     echo "override whatever is defined in per-repository configuration file. That means"
     echo "single command line may have multiple switches for different repositories."
     echo ""
+    echo "Arguments update-branch and subject accept placeholders, where strings are replaced"
+    echo "based on current repository:"
+    echo "  %r  Current repository path"
+    echo "  %s  Name of submodule to be updated"
+    echo "  %t  Submodule target tag or ref"
+    echo ""
+    echo "OPTIONS"
+    echo ""
     echo "  -h, --help      This help."
     echo "  -v, --verbose   Print all commands and additional debugs."
     echo "  -r, --remote    What remote to use for updates (default $opt_remote)."
@@ -204,10 +236,10 @@ print_help() {
     echo "                    multiple submodules."
     echo "  -t, --target    Checkout target instead of using latest commit in the submodule"
     echo "                    master branch."
-    echo "  --subject       Set custom subject line. Subject line string accepts some"
-    echo "                    placeholders (%s submodule name, %r repository path,"
-    echo "                    %t submodule target)."
-    echo "                    default: '%s: Update submodule.'"
+    echo "  --update-branch Create submodule update commit to this branch. Accepts placeholders."
+    echo "                    default: '$OPT_UPDATE_BRANCH_NAME_DEFAULT'"
+    echo "  --subject       Set custom subject line. Accepts placeholders."
+    echo "                    default: '$OPT_SUBJECT_DEFAULT'"
     echo "  --use-subject   Take only subject lines from submodule commits to the update"
     echo "                    commit message."
     echo "  --scan          What to scan from commit messages (see git log --format)"
@@ -286,6 +318,11 @@ while [ $# -gt 0 ]; do
             opt_submodule_target="$1"
             print_normal "Use submodule ref $opt_submodule_target for future updates."
             ;;
+        --update-branch)
+            shift
+            opt_update_branch_name="$1"
+            print_normal "Setting update branch name to '$opt_update_branch_name' for future updates."
+            ;;
         --subject)
             shift
             opt_subject="$1"
@@ -316,7 +353,7 @@ while [ $# -gt 0 ]; do
             OPT_SIGNOFF="1"
             ;;
         --autocomplete)
-            echo "-h --help -v --verbose --version -b --branch -r --remote -s --submodule -t --target --subject --use-subject --scan --match --reverse --format --signoff"
+            echo "-h --help -v --verbose --version -b --branch -r --remote -s --submodule -t --target --update-branch --subject --use-subject --scan --match --reverse --format --signoff"
             exit 0
             ;;
         -*)
@@ -325,7 +362,7 @@ while [ $# -gt 0 ]; do
             ;;
         *)
             print_debug "# Repository $1 remote $opt_remote($opt_force_remote) branch $opt_branch($opt_force_branch) submodule $opt_submodule($opt_force_submodule) subject '$opt_subject'($opt_force_subject)"
-            handle_repository $opt_force_remote $opt_remote $opt_force_branch $opt_branch $opt_force_subject "$opt_subject" "$opt_submodule_target" $opt_force_submodule $opt_submodule "$1"
+            handle_repository $opt_force_remote $opt_remote $opt_force_branch $opt_branch $opt_force_subject "$opt_subject" "$opt_submodule_target" "$opt_update_branch_name" $opt_force_submodule $opt_submodule "$1"
             ;;
     esac
     shift

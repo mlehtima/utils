@@ -24,7 +24,7 @@ print_normal() {
 }
 
 print_version() {
-    echo "$(basename $0) v$script_version"
+    echo "$(basename $0) $script_version"
 }
 
 run_cmd() {
