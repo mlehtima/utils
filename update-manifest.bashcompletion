@@ -5,6 +5,14 @@ _update-manifest()
 
     COMPREPLY=()
     cur="${COMP_WORDS[COMP_CWORD]}"
+    prev="${COMP_WORDS[COMP_CWORD-1]}"
+
+    case "${prev}" in
+        --branch)
+            COMPREPLY=($(compgen -W "$(git branch | cut -b3-)" -- ${cur}))
+            return 0
+            ;;
+    esac
 
     case "${cur}" in
         -*)
