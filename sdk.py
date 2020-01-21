@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 import dbus
 import dbus.service
@@ -7,9 +7,9 @@ import os
 import sys
 import distutils.spawn
 from subprocess import Popen, PIPE, STDOUT
-import ConfigParser
-import StringIO
-from gi.repository import GObject as gobject
+import configparser
+import io
+from gi.repository import GLib
 
 SERVER_PATH="/org/sailfish/sdkrun"
 SERVER_NAME="org.sailfish.sdkrun"
@@ -97,7 +97,7 @@ class TaskMonitor():
         bus.add_signal_receiver(TaskMonitor.task_handler,
                                 dbus_interface=SERVER_NAME,
                                 signal_name="TaskStateChanged")
-        self.mainloop = gobject.MainLoop()
+        self.mainloop = GLib.MainLoop()
 
     def run(self):
         print_tasks(True, True)
@@ -142,10 +142,10 @@ class TaskFollower(dbus.service.Object):
 
     def run(self):
         dbus.mainloop.glib.DBusGMainLoop(set_as_default=True)
-        self._loop = gobject.MainLoop.new(None, False)
+        self._loop = GLib.MainLoop.new(None, False)
         bus_name = dbus.service.BusName(self._name, dbus.SessionBus())
         dbus.service.Object.__init__(self, bus_name, self.PATH)
-        gobject.idle_add(self._register_follower)
+        GLib.idle_add(self._register_follower)
         try:
             self._loop.run()
         except KeyboardInterrupt as e:
@@ -164,17 +164,12 @@ class TaskFollower(dbus.service.Object):
         sys.stdout.write(line)
         sys.stdout.flush()
 
-def set_stdout_utf8():
-    import codecs
-    sys.stdout = codecs.getwriter('utf8')(sys.stdout)
-
 # This is stupid workaround, but couldn't figure out how to get
 # mainloop running again for the TaskFollower.
 def follow_task_hack_execlp(idno):
     os.execlp("dk-tasks", "dk-tasks", "--follow-hack", str(idno))
 
 def follow_task_hack(idno):
-    set_stdout_utf8()
     t = TaskFollower(idno)
     t.run()
     sys.exit(t.retno())
@@ -198,7 +193,6 @@ def follow_task(idno):
 def log(idno):
     found, text = sdk_method("Log")(idno)
     if found:
-        set_stdout_utf8()
         sys.stdout.write(text)
         sys.stdout.flush()
     else:
@@ -207,7 +201,7 @@ def log(idno):
 def cancel(idno):
     if idno < 0:
         tasks = sdk_method("Tasks")()
-        for idn, state, full_path, cmd in tasks:
+        for idn, state, full_path, cmd,ret in tasks:
             if idn > idno:
                 idno = idn
     if idno > 0:
@@ -227,11 +221,11 @@ def run_cmd(pwd, cmd, background=False):
 
 def get_default_target():
     default = None
-    config = ConfigParser.ConfigParser()
+    config = configparser.ConfigParser()
     try:
         with open(os.path.expanduser("~/.scratchbox2/config")) as stream:
-            stream = StringIO.StringIO("[default]\n" + stream.read())
-            config.readfp(stream)
+            stream = io.StringIO("[default]\n" + stream.read())
+            config.read_file(stream)
         default = config.get("default", "DEFAULT_TARGET")
     except IOError:
         pass
@@ -308,9 +302,9 @@ def sb2_default_target():
         targets.insert(0, default_target)
     if len(targets) > 0:
         p = Popen(["dmenu", "-fn", "Droid Sans Mono-17", "-p", "set default sb2 target:"], stdin=PIPE, stdout=PIPE, stderr=STDOUT)
-        ret = p.communicate(input="\n".join(targets))[0]
+        ret = p.communicate(input="\n".join(targets).encode())[0]
         if ret:
-            set_default_target(ret.split("\n")[0])
+            set_default_target(ret.decode().split("\n")[0])
 
 def sys_args1(*argv):
     if len(sys.argv) > 1:
