@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 import threading
 import subprocess
@@ -6,14 +6,14 @@ import signal
 import re
 import sys
 import time
-import Queue
+import queue
 import traceback
 
 import dbus
 import dbus.service
 import dbus.mainloop.glib
 
-from gi.repository import GObject as gobject
+from gi.repository import GLib
 
 SERVICE_NAME = "org.sailfish.sdkrun"
 SERVICE_PATH = "/org/sailfish/sdkrun"
@@ -38,7 +38,7 @@ class WorkerPrinter():
         self._match.append((re.compile(r'^.*:\d+: error:'),                     ERROR_STR,  True    ))
         self._match.append((re.compile(r'^.*:\d+:\d+: warning:'),               WARN_STR,   False   ))
 
-        self._queue = Queue.Queue()
+        self._queue = queue.Queue()
         self._running = True
 
         self._thread = threading.Thread(target=self._handler)
@@ -218,7 +218,7 @@ class Task(threading.Thread):
         try:
             self._process = subprocess.Popen(self._argv, cwd=self._pwd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, close_fds=True)
         except OSError as e:
-            print e
+            print(e)
             self._process = None
             self._set_state(Task.FAIL, lock=False)
 
@@ -240,7 +240,7 @@ class Task(threading.Thread):
                 self.unlock()
                 break
 
-            self._process_line(line)
+            self._process_line(line.decode('utf-8'))
 
         self._duration = time.time() - self._start_time
 
@@ -466,10 +466,10 @@ class Service(dbus.service.Object):
         bus_name = dbus.service.BusName(SERVICE_NAME, dbus.SessionBus())
         dbus.service.Object.__init__(self, bus_name, SERVICE_PATH)
 
-        # gobject MainLoop installs by default signal handler for SIGINT
+        # GLib MainLoop installs by default signal handler for SIGINT
         # creating the MainLoop with new(None, False) disables the signal
         # handler so we can handle the signal later
-        self._loop = gobject.MainLoop.new(None, False)
+        self._loop = GLib.MainLoop.new(None, False)
         print("Service running...")
         self._loop.run()
         self._manager.quit()
