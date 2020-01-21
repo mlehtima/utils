@@ -25,6 +25,14 @@ STATE_RUNNING   = 3
 STATE_DONE      = 4
 STATE_FAIL      = 5
 
+LOG_STR = dict()
+LOG_STR[STATE_CREATED]  = "{0}"
+LOG_STR[STATE_STARTING] = "{0}"
+LOG_STR[STATE_CANCEL]   = "\x1b[33m{0}\x1b[39m"
+LOG_STR[STATE_RUNNING]  = "\x1b[94m{0}\x1b[39m"
+LOG_STR[STATE_DONE]     = "\x1b[32m{0}\x1b[39m"
+LOG_STR[STATE_FAIL]     = "\x1b[31m{0}\x1b[39m"
+
 def state_str(state):
     if state == STATE_CREATED:
         return "CREATED"
@@ -81,12 +89,13 @@ def print_tasks(clear=False, print_empty=False):
         os.system("clear")
     tasks = sdk_method("Tasks")()
     if len(tasks) > 0:
-        print("{0:6s} {1:12s} {2:s}".format("[id/s]", "[path]", "[cmdline]"))
+        print("\x1b[30;107m{0:6s}\x1b[39;49m \x1b[30;107m{1:12s}\x1b[39;49m \x1b[30;107m{2:12s}\x1b[39;49m".format("[id/s]", "[path]", "[cmdline]"))
         for idno, state, full_path, cmd, ret in tasks:
             run_path = ''.join(full_path.split("/")[-1:])
             if len(run_path) > 12:
                 run_path = ".." + run_path[-10:]
-            print("{0:3d} {1:<2s} {2:12s} {3:s}".format(idno, state_short_str(state), run_path, cmd))
+            line = "{0:3d} {1:<2s} {2:12s} {3:s}".format(idno, state_short_str(state), run_path, cmd)
+            print(LOG_STR[state].format(line))
     elif print_empty:
         print("No active tasks.")
 
