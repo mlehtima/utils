@@ -63,10 +63,10 @@ icvim_usage() {
 
 filename=""
 compflags=""
-compargs=""
+declare -a compargs
 
 fill_compargs() {
-    compargs="$compargs $@"
+    compargs+=("$@")
 }
 
 fill_compflags() {
@@ -124,7 +124,7 @@ while [ 1 ]; do
         sleep 0.1
         ${compiler_cmd[$suffix]} $filename $compflags -o "$compname"
         if [ $? -eq 0 ]; then
-            $compname $compargs
+            $compname "${compargs[@]}"
         fi
         echo "---"
     fi
