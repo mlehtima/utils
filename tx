@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 # vim: set noexpandtab tabstop=4:
 
@@ -7,7 +7,7 @@ tx - unpack multiple compressed file types
 
 Public domain.
 
-Juho Hämäläinen 2008-2016  jusa@hilvi.org
+Juho Hämäläinen 2008-2020  jusa@hilvi.org
 
 """
 
@@ -16,13 +16,9 @@ import subprocess
 import sys
 import re
 from optparse import OptionParser, SUPPRESS_HELP
+from subprocess import DEVNULL
 
-VERSION = 0.5
-
-try:
-    from subprocess import DEVNULL # py3k
-except ImportError:
-    DEVNULL = open(os.devnull, 'wb')
+VERSION = 0.6
 
 class Handler:
 	def __init__(self, name, binaries, desc, action, ext):
