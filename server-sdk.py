@@ -295,7 +295,7 @@ class TaskManager():
         ret = []
         self._tasks_lock.acquire()
         for i in self._tasks:
-            ret.append((i.id(), i.state(), i.pwd(), i.cmdline(), i.returncode()))
+            ret.append((i.id(), i.state(), i.pwd(), i.cmdline(), i.returncode(), i.time()))
         self._tasks_lock.release()
         return ret
 
@@ -304,7 +304,7 @@ class TaskManager():
         self._tasks_lock.acquire()
         for i in self._tasks:
             if i.id() == idno:
-                ret = (i.id(), i.state(), i.pwd(), i.cmdline(), i.returncode())
+                ret = (i.id(), i.state(), i.pwd(), i.cmdline(), i.returncode(), i.time())
                 break
         self._tasks_lock.release()
         return ret
@@ -482,14 +482,14 @@ class Service(dbus.service.Object):
         self._manager.quit()
         print("Service stopped")
 
-    @dbus.service.method(SERVICE_NAME, in_signature='i', out_signature='iissi')
+    @dbus.service.method(SERVICE_NAME, in_signature='i', out_signature='iissii')
     def Task(self, idno):
         t = self._manager.task(idno)
         if t:
             return t
-        return (-1, -1, "", "", -1)
+        return (-1, -1, "", "", -1, -1)
 
-    @dbus.service.method(SERVICE_NAME, in_signature='', out_signature='a(iissi)')
+    @dbus.service.method(SERVICE_NAME, in_signature='', out_signature='a(iissii)')
     def Tasks(self):
         return self._manager.tasks()
 
