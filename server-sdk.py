@@ -8,6 +8,7 @@ import sys
 import time
 import queue
 import traceback
+from datetime import timedelta
 
 import dbus
 import dbus.service
@@ -125,8 +126,8 @@ class Task(threading.Thread):
         self._state_cb = state_callback
         self._process_cb = process_callback
         self._returncode = -1
-        self._start_time = time.time()
-        self._duration = -1
+        self._start_time = 0
+        self._duration = 0
         self._followers = []
         self._output = []
 
@@ -155,7 +156,10 @@ class Task(threading.Thread):
         return ' '.join(self._argv)
 
     def state_pretty_str(self):
-        return LOG_STATE_STR.format(self.id(), self.pwd(), self.cmdline())
+        s = LOG_STATE_STR.format(self.id(), self.pwd(), self.cmdline())
+        if self._state > Task.STARTING:
+            s = "{0} ({1:0>8})".format(s, str(timedelta(seconds=self.time())))
+        return s
 
     def _set_state(self, state, lock=True):
         if lock:
@@ -177,7 +181,10 @@ class Task(threading.Thread):
         return self._returncode
 
     def time(self):
-        return self._duration
+        if self._state == Task.DONE:
+            return int(self._duration)
+        else:
+            return int(time.time() - self._start_time)
 
     def register_follower(self, name):
         IFACE = "org.sailfish.sdk.client"
@@ -212,6 +219,8 @@ class Task(threading.Thread):
     def run(self):
         if self._state != Task.CREATED:
             return
+
+        self._start_time = time.time()
 
         self.lock()
         self._set_state(Task.STARTING, lock=False)
@@ -405,9 +414,7 @@ class TaskManager():
 
     # called from task thread
     def _task_process_line(self, task, line):
-        self._printer.process(line)
-        # This is a bit too much...
-        #self._printer.process("\x1b[33m({0})\x1b[39m {1}".format(task.id(), line))
+        self._printer.process("[{0:4d}s] {1}".format(task.time(), line))
 
     # return first task of task_type
     def _find_task(self, task_type, background=False):
