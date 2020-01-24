@@ -90,7 +90,7 @@ def print_tasks(clear=False, print_empty=False):
     tasks = sdk_method("Tasks")()
     if len(tasks) > 0:
         print("\x1b[30;107m{0:6s}\x1b[39;49m \x1b[30;107m{1:12s}\x1b[39;49m \x1b[30;107m{2:12s}\x1b[39;49m".format("[id/s]", "[path]", "[cmdline]"))
-        for idno, state, full_path, cmd, ret in tasks:
+        for idno, state, full_path, cmd, ret, duration in tasks:
             run_path = ''.join(full_path.split("/")[-1:])
             if len(run_path) > 12:
                 run_path = ".." + run_path[-10:]
@@ -185,14 +185,14 @@ def follow_task_hack(idno):
 
 def follow_task(idno):
     if idno > 0:
-        idn, state, full_path, cmd, ret = sdk_method("Task")(idno)
+        idn, state, full_path, cmd, ret, duration = sdk_method("Task")(idno)
         if idn < 0:
             log_err("No task with id {} found.".format(idno))
         if state != STATE_RUNNING:
             log_err("Task {0} [{1}] already done with return code {2}.".format(idn, cmd, ret), code=0)
     else:
         tasks = sdk_method("Tasks")()
-        for idn, state, full_path, cmd, ret in tasks:
+        for idn, state, full_path, cmd, ret, duration in tasks:
             if state == STATE_RUNNING and idn > idno:
                 idno = idn
         if idno == 0:
@@ -210,7 +210,7 @@ def log(idno):
 def cancel(idno):
     if idno < 0:
         tasks = sdk_method("Tasks")()
-        for idn, state, full_path, cmd,ret in tasks:
+        for idn, state, full_path, cmd, ret, duration in tasks:
             if idn > idno:
                 idno = idn
     if idno > 0:
