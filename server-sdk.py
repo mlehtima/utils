@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import os
 import threading
 import subprocess
 import signal
@@ -9,6 +10,8 @@ import time
 import queue
 import traceback
 from datetime import timedelta
+from unicodedata import normalize
+from pathlib import Path
 
 import dbus
 import dbus.service
@@ -18,6 +21,9 @@ from gi.repository import GLib
 
 SERVICE_NAME = "org.sailfish.sdkrun"
 SERVICE_PATH = "/org/sailfish/sdkrun"
+
+BUILD_LOGS_ENABLED  = True
+BUILD_LOGS_PATH     = ".build_logs"
 
 TASK_HISTORY_LENGTH = 50
 MIN_LINES_FOR_ERROR = 20
@@ -130,6 +136,7 @@ class Task(threading.Thread):
         self._duration = 0
         self._followers = []
         self._output = []
+        self._log_file = None
 
     def lock(self):
         self._process_lock.acquire();
@@ -208,6 +215,8 @@ class Task(threading.Thread):
 
     def _process_line(self, line):
         self._output.append(line)
+        if self._log_file:
+            self._log_file.write(line)
 
         if len(self._followers):
             for method_write, method_quit, name in self._followers:
@@ -216,11 +225,30 @@ class Task(threading.Thread):
         if self._process_cb:
             self._process_cb(self, line)
 
+    def slugify(self):
+        """
+        Normalizes string, converts to lowercase, removes non-alpha characters,
+        and converts spaces to hyphens.
+        """
+        value = normalize('NFKD', "{0:s}-{1:s}".format(self.pwd(), self.cmdline())).encode('ascii', 'ignore')
+        value = re.sub(r'[^\w\s-]', '_', value.decode()).strip().lower()
+        value = re.sub(r'[-\s]+', '-', value)
+        return value
+
     def run(self):
         if self._state != Task.CREATED:
             return
 
         self._start_time = time.time()
+
+        if BUILD_LOGS_ENABLED:
+            log_path = Path(os.path.join(str(Path.home()), BUILD_LOGS_PATH))
+            log_fn = os.path.join(str(log_path), "{0:d}-{1:s}.log".format(int(time.time()), self.slugify()))
+            if not log_path.exists():
+                log_path.mkdir()
+            self._log_file = open(log_fn, "w")
+            self._log_file.write("{0:s} $ {1:s}\n".format(self.pwd(), self.cmdline()))
+            self._log_file.write("================log================\n")
 
         self.lock()
         self._set_state(Task.STARTING, lock=False)
@@ -271,6 +299,7 @@ class Task(threading.Thread):
         if self._process.stderr:
             self._process.stderr.close()
         self._process = None
+        self._log_file = None
         self.unlock()
 
     def cancel(self):
