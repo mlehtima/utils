@@ -36,7 +36,7 @@ run_python() {
     compflags=" "
     local python_script="$1"
     local target="$3"
-    echo '#!/usr/bin/env python' > "$target"
+    echo '#!/usr/bin/env python3' > "$target"
     cat "$python_script" >> "$target"
     chmod +x "$target"
 }
