@@ -1,6 +1,6 @@
 #!/bin/bash
 
-VERSION="1.0.0"
+VERSION="1.1.0"
 VERSION_DATE="04/11/2019"
 GIT_NEW_TAG_MAN_PATH="/usr/local/share/man/man1"
 TAG_MSG_MSG=
@@ -22,7 +22,7 @@ git-new-tag \- Intelligent tag increase
 .SH SYNOPSIS
 .sp
 .nf
-\fIgit new-tag\fR [\-1] [\-2] [\-3] [\-4] [\-g]
+\fIgit new-tag\fR [\-1] [\-2] [\-3] [\-4] [\-r] [\-g]
             [\-a] [\-m <msg>]
             [\-p <prefix]
 .fi
@@ -37,6 +37,7 @@ manpage_option -1 --major "Increase major value."
 manpage_option -2 --minor "Increase minor value."
 manpage_option -3 --micro "Increase micro value."
 manpage_option -4 --patch "Increase patch value."
+manpage_option -r --release "Increase release value."
 manpage_option -g --git "Increase git suffix."
 manpage_option -p --prefix "Add or modify prefix for the tag."
 echo '
@@ -51,7 +52,7 @@ External tool for the \fBgit\fR(1) suite
 
 case $1 in
     --autocomplete)
-        echo -e "-1\n--major\n-2\n--minor\n-3\n--micro\n-4\n--patch\n-g\n--git\n-m\n--message\n-a\n--annotate\n-p\n--prefix"
+        echo -e "--help\n-1\n--major\n-2\n--minor\n-3\n--micro\n-4\n--patch\n-g\n--git\n-m\n--message\n-a\n--annotate\n-p\n--prefix\n-r\n--relase"
         exit 0
         ;;
     --manpage)
@@ -85,21 +86,28 @@ if [[ "$current_full" =~ '+git' ]]; then
     current_git=${current_full#*+git}
 fi
 
+current_release=
+if [[ "$current_full" =~ '-' ]]; then
+    current_release=${current_full#*-}
+fi
+
 current=${current_full#$current_prefix}
 current=${current%+git$current_git}
 
 if [[ "$current" =~ '.' ]]; then
-    current_major=$(echo "$current" | cut -d. -f1)
-    current_minor=$(echo "$current" | cut -d. -f2)
-    current_micro=$(echo "$current" | cut -d. -f3)
-    current_patch=$(echo "$current" | cut -d. -f4)
+    current_major=$(echo "$current" | cut -d- -f1 | cut -d. -f1)
+    current_minor=$(echo "$current" | cut -d- -f1 | cut -d. -f2)
+    current_micro=$(echo "$current" | cut -d- -f1 | cut -d. -f3)
+    current_patch=$(echo "$current" | cut -d- -f1 | cut -d. -f4)
 else
-    current_major=$current
+    current_major=$(echo "$current" | cut -d- -f1)
 fi
 
 parts=$(echo "$current_tag" | grep -o '\.' | wc -l)
 
-#echo "full '$current_full' ($parts) prefix '$current_prefix' major '$current_major' minor '$current_minor' micro '$current_micro' patch '$current_patch' git '$current_git'"
+if [ -n "$DEBUG" ]; then
+    echo "full '$current_full' ($parts) prefix '$current_prefix' major '$current_major' minor '$current_minor' micro '$current_micro' patch '$current_patch' git '$current_git' release '$current_release'"
+fi
 
 while [ $# -gt 0 ]; do
     case "$1" in
@@ -114,6 +122,9 @@ while [ $# -gt 0 ]; do
             if [ -n "$current_git" ]; then
                 current_git=1
             fi
+            if [ -n "$current_release" ]; then
+                current_release=1
+            fi
             current_patch=
             ;;
         -2|--minor)
@@ -124,6 +135,9 @@ while [ $# -gt 0 ]; do
             if [ -n "$current_git" ]; then
                 current_git=1
             fi
+            if [ -n "$current_release" ]; then
+                current_release=1
+            fi
             current_patch=
             ;;
         -3|--micro)
@@ -133,6 +147,9 @@ while [ $# -gt 0 ]; do
             fi
             if [ -n "$current_git" ]; then
                 current_git=1
+            fi
+            if [ -n "$current_release" ]; then
+                current_release=1
             fi
             current_patch=
             ;;
@@ -150,6 +167,12 @@ while [ $# -gt 0 ]; do
             if [ -n "$current_git" ]; then
                 current_git=1
             fi
+            if [ -n "$current_release" ]; then
+                current_release=1
+            fi
+            ;;
+        -r|--release)
+            ((++current_release))
             ;;
         -g|--git)
             ((++current_git))
@@ -180,6 +203,9 @@ if [ -n "$current_micro" ]; then
 fi
 if [ -n "$current_patch" ]; then
     new_tag=$new_tag.$current_patch
+fi
+if [ -n "$current_release" ]; then
+    new_tag=$new_tag-$current_release
 fi
 if [ -n "$current_git" ]; then
     new_tag=$new_tag+git$current_git
