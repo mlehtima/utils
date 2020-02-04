@@ -306,7 +306,8 @@ class Task(threading.Thread):
         self.lock()
         if self._process:
             self._process.kill()
-        self._set_state(Task.CANCEL, lock=False)
+        if self._state == Task.RUNNING:
+            self._set_state(Task.CANCEL, lock=False)
         self.unlock()
 
 class TaskManager():
