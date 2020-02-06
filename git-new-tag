@@ -220,7 +220,7 @@ if [ "$current_full" == "$new_tag" ]; then
 fi
 
 echo "Previous tag: $current_full"
-echo "New tag: $new_tag"
+echo "     New tag: $new_tag"
 if [ -n "$TAG_ANNOTATE" ]; then
     echo "Annotated."
 fi
