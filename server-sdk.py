@@ -233,6 +233,9 @@ class Task(threading.Thread):
         value = normalize('NFKD', "{0:s}-{1:s}".format(self.pwd(), self.cmdline())).encode('ascii', 'ignore')
         value = re.sub(r'[^\w\s-]', '_', value.decode()).strip().lower()
         value = re.sub(r'[-\s]+', '-', value)
+        # Max filename length is usually 255 characters, so let's stick to something sane.
+        if len(value) > 160:
+            value = value[:160]
         return value
 
     def run(self):
