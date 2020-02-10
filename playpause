@@ -1,0 +1,63 @@
+#!/bin/bash
+
+# Requires spotify control script (sp) and/or music-on-console player (mocp)
+
+SCRIPT_VERSION=1.0.0
+
+LAST_PLAYING="/tmp/playpause-lastplaying.tmp"
+SPOT_RUNNING=0
+SPOT_PLAYING=0
+MOCP_RUNNING=0
+MOCP_PLAYING=0
+
+if [ $1 == "--version" ]; then
+    echo "$(basename $0) v$SCRIPT_VERSION"
+    exit 0
+fi
+
+# check if Spotify is running and playing
+sp status >/dev/null
+if [ $? -eq 0 ]; then
+    SPOT_RUNNING=1
+    [ "$(sp status)" == "Playing" ] && SPOT_PLAYING=1
+fi
+
+# check if MOCP is running and playing
+if [ ! -z "$(pidof mocp)" ]; then
+    MOCP_RUNNING=1
+    [ "$(mocp -i | grep State | cut -d' ' -f2)" == "PLAY" ] && MOCP_PLAYING=1
+fi
+
+case $1 in
+    --next)
+        [ $SPOT_PLAYING -eq 1 ] && sp next
+        [ $MOCP_PLAYING -eq 1 ] && mocp --next
+        exit 0
+        ;;
+    --prev)
+        [ $SPOT_PLAYING -eq 1 ] && sp prev
+        [ $MOCP_PLAYING -eq 1 ] && mocp --previous
+        exit 0
+        ;;
+esac
+
+# Pause Spotify
+if [ $SPOT_PLAYING -eq 1 ]; then
+    sp play
+    echo "spotify" > "$LAST_PLAYING"
+fi
+
+# Pause mocp
+if [ $MOCP_PLAYING -eq 1 ]; then
+    mocp -G
+    echo "mocp" > "$LAST_PLAYING"
+fi
+
+if [[ $MOCP_PLAYING -eq 0 && $SPOT_PLAYING -eq 0 ]]; then
+    if [ -f "$LAST_PLAYING" ]; then
+        case "$(cat $LAST_PLAYING)" in
+            spotify)    [ $SPOT_RUNNING -eq 1 ] && sp play ;;
+            mocp)       [ $MOCP_RUNNING -eq 1 ] && mocp -G ;;
+        esac
+    fi
+fi
