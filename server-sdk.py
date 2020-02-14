@@ -193,6 +193,9 @@ class Task(threading.Thread):
         else:
             return int(time.time() - self._start_time)
 
+    def _quit_follower(self, method_quit):
+        method_quit(self._returncode)
+
     def register_follower(self, name):
         IFACE = "org.sailfish.sdk.client"
         PATH  = "/org/sailfish/sdk/client"
@@ -200,7 +203,10 @@ class Task(threading.Thread):
         service = bus.get_object(name, PATH)
         method_write = service.get_dbus_method("Write", IFACE)
         method_quit = service.get_dbus_method("Quit", IFACE)
-        self._followers.append((method_write, method_quit, name))
+        if self._state in (Task.CREATED, Task.STARTING, Task.RUNNING):
+            self._followers.append((method_write, method_quit, name))
+        else:
+            GLib.idle_add(self._quit_follower, method_quit)
 
     def unregister_follower(self, unregister_name):
         i = 0
