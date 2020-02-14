@@ -129,6 +129,7 @@ class TaskFollower(dbus.service.Object):
         self._name = "org.sailfish.sdk.client{}".format(os.getpid())
         self._idno = int(idno)
         self._retno = 0
+        self._running = False
         pass
 
     def _m(self, method_name):
