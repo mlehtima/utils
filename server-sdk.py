@@ -121,8 +121,8 @@ class Task(threading.Thread):
 
     def __init__(self, pwd, argv, state_callback=None, process_callback=None, background=False):
         threading.Thread.__init__(self)
-        self._pwd = pwd
-        self._argv = list(argv)
+        self._pwd = str(pwd)
+        self._argv = [str(n) for n in argv]
         Task.global_id += 1
         self._id = Task.global_id
         self._state = Task.CREATED
