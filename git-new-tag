@@ -1,11 +1,12 @@
 #!/bin/bash
 
-VERSION="1.1.0"
-VERSION_DATE="04/11/2019"
+VERSION="1.2.0"
+VERSION_DATE="11/03/2020"
 GIT_NEW_TAG_MAN_PATH="/usr/local/share/man/man1"
 TAG_MSG_MSG=
 TAG_ANNOTATE=
 NEW_PREFIX=
+EDIT_BEFORE=
 
 manpage_option() {
     local short=$1
@@ -25,6 +26,7 @@ git-new-tag \- Intelligent tag increase
 \fIgit new-tag\fR [\-1] [\-2] [\-3] [\-4] [\-r] [\-g]
             [\-a] [\-m <msg>]
             [\-p <prefix]
+            [\-e]
 .fi
 .sp
 .SH DESCRIPTION
@@ -40,6 +42,7 @@ manpage_option -4 --patch "Increase patch value."
 manpage_option -r --release "Increase release value."
 manpage_option -g --git "Increase git suffix."
 manpage_option -p --prefix "Add or modify prefix for the tag."
+manpage_option -e --edit "Edit tag string (using \$EDITOR)."
 echo '
 .SH "SEE ALSO"
 .sp
@@ -52,7 +55,7 @@ External tool for the \fBgit\fR(1) suite
 
 case $1 in
     --autocomplete)
-        echo -e "--help\n-1\n--major\n-2\n--minor\n-3\n--micro\n-4\n--patch\n-g\n--git\n-m\n--message\n-a\n--annotate\n-p\n--prefix\n-r\n--relase"
+        echo -e "--help\n-1\n--major\n-2\n--minor\n-3\n--micro\n-4\n--patch\n-g\n--git\n-m\n--message\n-a\n--annotate\n-p\n--prefix\n-r\n--relase\n-e\n--edit"
         exit 0
         ;;
     --manpage)
@@ -76,23 +79,25 @@ if [ ! $? -eq 0 ]; then
     exit 1
 fi
 
+current="$current_full"
+
 current_prefix=
-if [[ "$current_full" =~ '/' ]]; then
-    current_prefix=${current_full%/*}/
+if [[ "$current" =~ '/' ]]; then
+    current_prefix=${current%/*}/
+    current=${current#$current_prefix}
 fi
 
 current_git=
-if [[ "$current_full" =~ '+git' ]]; then
-    current_git=${current_full#*+git}
+if [[ "$current" =~ '+git' ]]; then
+    current_git=${current#*+git}
+    current=${current%+git$current_git}
 fi
 
 current_release=
-if [[ "$current_full" =~ '-' ]]; then
-    current_release=${current_full#*-}
+if [[ "$current" =~ '-' ]]; then
+    current_release=${current#*-}
+    current=${current%-$current_release}
 fi
-
-current=${current_full#$current_prefix}
-current=${current%+git$current_git}
 
 if [[ "$current" =~ '.' ]]; then
     current_major=$(echo "$current" | cut -d- -f1 | cut -d. -f1)
@@ -189,6 +194,9 @@ while [ $# -gt 0 ]; do
             shift
             NEW_PREFIX="$1"
             ;;
+        -e|--edit)
+            EDIT_BEFORE=1
+            ;;
     esac
     shift
 done
@@ -212,6 +220,18 @@ if [ -n "$current_git" ]; then
 fi
 if [ -n "$NEW_PREFIX" ]; then
     new_tag="$NEW_PREFIX$new_tag"
+fi
+
+if [ -n "$EDIT_BEFORE" ]; then
+    if ! which $EDITOR >/dev/null; then
+        echo "\$EDITOR not found or not defined."
+        exit 1
+    fi
+    _tmpfile="/tmp/git-new-tag-$$-$RANDOM.tmp"
+    echo -n "$new_tag" > "$_tmpfile"
+    $EDITOR $_tmpfile
+    new_tag="$(cat "$_tmpfile" | tr -d '\n\t ')"
+    rm -f "$_tmpfile"
 fi
 
 if [ "$current_full" == "$new_tag" ]; then
