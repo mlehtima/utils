@@ -6,7 +6,10 @@
 case "$(basename $0)" in
     # Special cases for aliases to other commands
     gitg)
-        git gui $@ &
+        exec git gui $@ &
+        ;;
+    gtk)
+        exec gitk $@ &
         ;;
 
     # Default to running binary with same name as symbolic link
