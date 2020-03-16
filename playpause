@@ -39,6 +39,50 @@ case $1 in
         [ $MOCP_PLAYING -eq 1 ] && mocp --previous
         exit 0
         ;;
+    --ff)
+        [ $MOCP_PLAYING -eq 1 ] && mocp -k 30
+        exit 0
+        ;;
+    --info)
+        if [ $MOCP_RUNNING -eq 1 ]; then
+            if which dmenu >/dev/null; then
+                _output=""
+                _artist="$(mocp -Q %artist)"
+                _album="$(mocp -Q %album)"
+                _track="$(mocp -Q %song)"
+                if [[ -z "$_artist" && -z "$_album" && -z "$_track" ]]; then
+                    _output="$(mocp -Q %file)"
+                else
+                    if [ -n "$_artist" ]; then
+                        _output="$_artist"
+                    else
+                        _output="<Unknown artist>"
+                    fi
+                    if [ -n "$_track" ]; then
+                        _output="$_output - $_track"
+                    else
+                        _output="$_output - <Unknown track>"
+                    fi
+                    if [ -n "$_album" ]; then
+                        _output="$_output ($_album)"
+                    fi
+                    if [[ -z "$_artist" || -z "$_album" || -z "$_track" ]]; then
+                        _output="$_output [$(mocp -Q %file)]"
+                    fi
+                fi
+                _cmds=""
+                [ $MOCP_PLAYING -eq 1 ] && _cmds="pause\n" || _cmds="play\n"
+                _cmds="${_cmds}next\nprev\n"
+                _cmd=$(echo -e "$_cmds$_output" | dmenu -l 4 -fn "Droid Sans Mono-20")
+                case $_cmd in
+                    pr*)    mocp --previous ;;
+                    p*)     mocp --toggle-pause ;;
+                    n*)     mocp --next ;;
+                esac
+            fi
+        fi
+        exit 0
+        ;;
 esac
 
 # Pause Spotify
@@ -49,7 +93,7 @@ fi
 
 # Pause mocp
 if [ $MOCP_PLAYING -eq 1 ]; then
-    mocp -G
+    mocp --toggle-pause
     echo "mocp" > "$LAST_PLAYING"
 fi
 
@@ -57,7 +101,7 @@ if [[ $MOCP_PLAYING -eq 0 && $SPOT_PLAYING -eq 0 ]]; then
     if [ -f "$LAST_PLAYING" ]; then
         case "$(cat $LAST_PLAYING)" in
             spotify)    [ $SPOT_RUNNING -eq 1 ] && sp play ;;
-            mocp)       [ $MOCP_RUNNING -eq 1 ] && mocp -G ;;
+            mocp)       [ $MOCP_RUNNING -eq 1 ] && mocp --toggle-pause ;;
         esac
     fi
 fi
