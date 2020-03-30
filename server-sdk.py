@@ -86,7 +86,7 @@ class WorkerPrinter():
             if regex.match(line):
                 line = pr.format(line)
                 if error:
-                    self._errors.append(line)
+                    self._errors.append((self._lines, line))
                 break
         if ts:
             line = "[{0:4d}s] {1}".format(ts, line)
@@ -94,8 +94,8 @@ class WorkerPrinter():
 
     def end(self):
         if len(self._errors) > 0 and self._lines > MIN_LINES_FOR_ERROR:
-            for line in self._errors:
-                self._print(ERROR_STR.format(line))
+            for lineno, line in self._errors:
+                self._print(ERROR_STR.format("{:<7} {}".format(str(lineno)+":", line)))
         self.reset()
 
     def done(self):
