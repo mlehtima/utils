@@ -80,19 +80,17 @@ class WorkerPrinter():
         self._lines = 0
         self._errors = []
 
-    def process(self, line):
-        printed = False
+    def process(self, ts, line):
+        self._lines += 1
         for regex, pr, error in self._match:
             if regex.match(line):
-                self._print(pr.format(line))
-                printed = True
+                line = pr.format(line)
                 if error:
                     self._errors.append(line)
                 break
-        if not printed:
-            self._print(line)
-
-        self._lines += 1
+        if ts:
+            line = "[{0:4d}s] {1}".format(ts, line)
+        self._print(line)
 
     def end(self):
         if len(self._errors) > 0 and self._lines > MIN_LINES_FOR_ERROR:
@@ -453,7 +451,7 @@ class TaskManager():
 
     # called from task thread
     def _task_process_line(self, task, line):
-        self._printer.process("[{0:4d}s] {1}".format(task.time(), line))
+        self._printer.process(task.time(), line)
 
     # return first task of task_type
     def _find_task(self, task_type, background=False):
