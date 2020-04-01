@@ -87,9 +87,9 @@ def set_debug(enabled):
         s = True
     sdk_method("Debug")(s)
 
-def print_tasks(clear=False, print_empty=False):
+def print_tasks(monitor=False):
     tasks = sdk_method("Tasks")()
-    if clear:
+    if monitor:
         # not best but shortest solution for now
         os.system("clear")
     if len(tasks) > 0:
@@ -100,8 +100,8 @@ def print_tasks(clear=False, print_empty=False):
                 run_path = ".." + run_path[-10:]
             line = "{0:3d} {1:<2s} {2:12s} {3:s}".format(idno, state_short_str(state), run_path, cmd)
             print(LOG_STR[state].format(line))
-    elif print_empty:
-        print("No active tasks.")
+    elif monitor:
+        print("No tasks.")
 
 class TaskMonitor():
     def __init__(self):
@@ -113,7 +113,7 @@ class TaskMonitor():
         self.mainloop = GLib.MainLoop()
 
     def run(self):
-        print_tasks(True, True)
+        print_tasks(True)
         try:
             self.mainloop.run()
         except KeyboardInterrupt as e:
@@ -121,7 +121,7 @@ class TaskMonitor():
 
     @staticmethod
     def task_handler(new_state, task_id, task_pwd, task_cmd, duration):
-        print_tasks(True, True)
+        print_tasks(True)
 
 def monitor_tasks():
     TaskMonitor().run()
