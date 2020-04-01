@@ -88,10 +88,10 @@ def set_debug(enabled):
     sdk_method("Debug")(s)
 
 def print_tasks(clear=False, print_empty=False):
+    tasks = sdk_method("Tasks")()
     if clear:
         # not best but shortest solution for now
         os.system("clear")
-    tasks = sdk_method("Tasks")()
     if len(tasks) > 0:
         print("\x1b[30;107m{0:6s}\x1b[39;49m \x1b[30;107m{1:12s}\x1b[39;49m \x1b[30;107m{2:24s}\x1b[39;49m".format("[id/s]", "[path]", "[cmdline]"))
         for idno, state, full_path, cmd, ret, duration in tasks:
