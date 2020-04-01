@@ -71,7 +71,11 @@ def log_err(msg, exit=True, code=1):
 
 def sdk_method(method_name):
     bus = dbus.SessionBus()
-    service = bus.get_object(SERVER_NAME, SERVER_PATH)
+    try:
+        service = bus.get_object(SERVER_NAME, SERVER_PATH)
+    except dbus.exceptions.DBusException as e:
+        print("Cannot reach server: {}".format(e))
+        sys.exit(255)
     return service.get_dbus_method(method_name, SERVER_NAME)
 
 def quit():
