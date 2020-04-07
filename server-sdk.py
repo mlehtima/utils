@@ -10,6 +10,7 @@ import time
 import queue
 import traceback
 from datetime import timedelta
+from datetime import datetime
 from unicodedata import normalize
 from pathlib import Path
 
@@ -252,7 +253,7 @@ class Task(threading.Thread):
 
         if BUILD_LOGS_ENABLED:
             log_path = Path(os.path.join(str(Path.home()), BUILD_LOGS_PATH))
-            log_fn = os.path.join(str(log_path), "{0:d}-{1:s}.log".format(int(time.time()), self.slugify()))
+            log_fn = os.path.join(str(log_path), "{0:s}-{1:s}.log".format(datetime.now().strftime("%Y.%m.%d-%H:%M:%S"), self.slugify()))
             if not log_path.exists():
                 log_path.mkdir()
             self._log_file = open(log_fn, "w")
