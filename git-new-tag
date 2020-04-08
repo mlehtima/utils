@@ -1,7 +1,7 @@
 #!/bin/bash
 
-VERSION="1.2.0"
-VERSION_DATE="11/03/2020"
+VERSION="1.2.1"
+VERSION_DATE="08/04/2020"
 GIT_NEW_TAG_MAN_PATH="/usr/local/share/man/man1"
 TAG_MSG_MSG=
 TAG_ANNOTATE=
@@ -108,10 +108,24 @@ else
     current_major=$(echo "$current" | cut -d- -f1)
 fi
 
-parts=$(echo "$current_tag" | grep -o '\.' | wc -l)
+# If tag has non-numeric characters with the major part, for example v2.0.0,
+# strip the characters from number part.
+major_prefix="${current_major//[0-9]/}"
+if [ -n "$major_prefix" ]; then
+    major_prefix="$current_major"
+    _strip_numbers="${major_prefix%[0-9]}"
+    while [ "$major_prefix" != "$_strip_numbers" ]; do
+        major_prefix="$_strip_numbers"
+        _strip_numbers="${major_prefix%[0-9]}"
+    done
+    major_prefix="$_strip_numbers"
+    current_major="${current_major/$major_prefix/}"
+fi
+
+parts=$(echo "$current_full" | grep -o '\.' | wc -l)
 
 if [ -n "$DEBUG" ]; then
-    echo "full '$current_full' ($parts) prefix '$current_prefix' major '$current_major' minor '$current_minor' micro '$current_micro' patch '$current_patch' git '$current_git' release '$current_release'"
+    echo "full '$current_full' ($parts) prefix '$current_prefix' major-prefix '$major_prefix' major '$current_major' minor '$current_minor' micro '$current_micro' patch '$current_patch' git '$current_git' release '$current_release'"
 fi
 
 while [ $# -gt 0 ]; do
@@ -202,6 +216,7 @@ while [ $# -gt 0 ]; do
 done
 
 new_tag=$current_prefix
+new_tag=$new_tag$major_prefix
 new_tag=$new_tag$current_major
 if [ -n "$current_minor" ]; then
     new_tag=$new_tag.$current_minor
@@ -228,9 +243,9 @@ if [ -n "$EDIT_BEFORE" ]; then
         exit 1
     fi
     _tmpfile="/tmp/git-new-tag-$$-$RANDOM.tmp"
-    echo -n "$new_tag" > "$_tmpfile"
+    echo -e "$new_tag\n\n# Previous tag: $current_full\n# All commented lines are ignored." > "$_tmpfile"
     $EDITOR $_tmpfile
-    new_tag="$(cat "$_tmpfile" | tr -d '\n\t ')"
+    new_tag="$(grep -v -e '^[       ]*#' "$_tmpfile" | tr -d '\n\t ')"
     rm -f "$_tmpfile"
 fi
 
