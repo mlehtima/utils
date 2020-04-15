@@ -191,6 +191,8 @@ class Task(threading.Thread):
     def time(self):
         if self._state == Task.DONE:
             return int(self._duration)
+        elif self._state == Task.CANCEL:
+            return 0
         else:
             return int(time.time() - self._start_time)
 
@@ -316,7 +318,7 @@ class Task(threading.Thread):
         self.lock()
         if self._process:
             self._process.kill()
-        if self._state == Task.RUNNING:
+        if self._state in (Task.CREATED, Task.STARTING, Task.RUNNING):
             self._set_state(Task.CANCEL, lock=False)
         self.unlock()
 
