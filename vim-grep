@@ -20,9 +20,9 @@ SCRIPTPATH="$(dirname "`readlink -f $0`")"
 source "$SCRIPTPATH/common.sh" || exit 1
 
 SCRIPT_VERSION="1.1.0"
-expect_common_version 1
+expect_common_version 3
 check_config EDITOR=less
-need_binaries git grep sed mktemp
+need_binaries git grep sed
 
 print_usage() {
     echo "$(basename $0) v$SCRIPT_VERSION"
@@ -74,7 +74,7 @@ write_output() {
     # write to file when outside vim
     if [ -z "$VIMRUNTIME" ]; then
         if [ -z "$result" ]; then
-            result="$(mktemp --tmpdir= grep.XXXXXX.gitopenbuffer)"
+            common_tempfile result grep.XXXXXX.gitopenbuffer
         fi
         echo "$@" >> "$result"
     else
@@ -94,7 +94,7 @@ else
     grepdirectories="."
 fi
 
-output="$(mktemp --tmpdir= temp.XXXXXX)"
+common_tempfile output
 
 finish() {
     if [ -e "$output" ]; then
