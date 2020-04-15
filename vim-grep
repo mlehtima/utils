@@ -19,7 +19,7 @@
 SCRIPTPATH="$(dirname "`readlink -f $0`")"
 source "$SCRIPTPATH/common.sh" || exit 1
 
-SCRIPT_VERSION="1"
+SCRIPT_VERSION="1.1.0"
 expect_common_version 1
 check_config EDITOR=less
 need_binaries git grep sed mktemp
@@ -84,11 +84,14 @@ write_output() {
 
 git branch > /dev/null 2>&1
 if [ $? -eq 0 ]; then
+    need_binaries awk
     grepcommand="git grep -n"
     grepcommandpost=""
+    grepdirectories=". $(git submodule status | awk 'BEGIN { ORS=" " } { print $2 }')"
 else
     grepcommand="grep -r -n"
     grepcommandpost="*"
+    grepdirectories="."
 fi
 
 output="$(mktemp --tmpdir= temp.XXXXXX)"
@@ -106,7 +109,11 @@ trap finish EXIT
 
 print_log -e -n "Grepping...\r"
 
-$grepcommand -- "$search" $grepcommandpost | sed -e 's/\(.*:[0-9]\+\):/\1 :/' > "$output"
+for d in $grepdirectories; do
+    pushd "$d" >/dev/null
+    $grepcommand -- "$search" $grepcommandpost | sed -e 's/\(.*:[0-9]\+\):/\1 :/' >> "$output"
+    popd >/dev/null
+done
 
 if [ "$(wc -l < "$output")" -eq 0 ]; then
     exit 1
