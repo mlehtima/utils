@@ -4,6 +4,7 @@ script_version=2019.11.22
 
 SCRIPTPATH="$(dirname "`readlink -f $0`")"
 source "$SCRIPTPATH/update-common.sh" || exit 1
+expect_common_version 3
 
 GLOBAL_CONFIG="$HOME/.config/update-manifest.conf"
 
@@ -148,7 +149,8 @@ handle_repository() {
             print_error abort
             exit 1
         fi
-        temp_commit="$(mktemp)"
+        common_tempfile temp_commit
+
         echo "REMOVE THIS LINE! (this commit is for $repository)" >> "$temp_commit"
         echo "Update manifest." >> "$temp_commit"
 
@@ -196,7 +198,7 @@ handle_repository() {
 dir=
 projects=
 
-check_bin git mktemp awk grep sed
+check_bin git awk grep sed
 
 if [ -f "$GLOBAL_CONFIG" ]; then
     source "$GLOBAL_CONFIG"
