@@ -4,6 +4,7 @@ script_version=2019.12.11
 
 SCRIPTPATH="$(dirname "`readlink -f $0`")"
 source "$SCRIPTPATH/update-common.sh" || exit 1
+expect_common_version 3
 
 OPT_SUBJECT_DEFAULT="%s: Update submodule."
 OPT_UPDATE_BRANCH_NAME_DEFAULT="update_submodule_%s"
@@ -164,7 +165,7 @@ handle_repository() {
         enter_dir "$submodule_name"
 
             temp_tag="update_submodule_$(date +%s)"
-            temp_commit="$(mktemp)"
+            common_tempfile temp_commit
             run_cmd git fetch origin
             run_cmd git tag $temp_tag
             run_cmd git checkout master
@@ -206,7 +207,7 @@ handle_repository() {
     leave_dir "$repository"
 }
 
-check_bin git mktemp awk grep sed
+check_bin git awk grep sed
 
 print_help() {
     echo "Usage: $(basename $0) [OPTIONS] <repositories>"
