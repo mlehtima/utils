@@ -4,12 +4,12 @@ SCRIPTPATH="$(dirname "`readlink -f $0`")"
 source "$SCRIPTPATH/common.sh" || exit 1
 
 SCRIPT_VERSION=3
-expect_common_version 1
+expect_common_version 3
 load_config
 check_config ICVIM_OPEN="gvim -f"
 check_config ICVIM_COMPILE_C="gcc -Wall -std=c99"
 check_config ICVIM_COMPILE_CPP="g++ -Wall"
-need_binaries cpp g++ bash inotifywait mktemp
+need_binaries cpp g++ bash inotifywait
 declare -F "$ICVIM_OPEN" >/dev/null
 if [ $? -eq 1 ]; then
     need_binaries $(echo "$ICVIM_OPEN" | cut -d' ' -f1)
@@ -97,9 +97,9 @@ if [ -z "${compiler_cmd[$suffix]}" ]; then
     exit 1
 fi
 
-compname="$(mktemp --tmpdir= output.XXXXXX)"
+common_tempfile compname
 
-lockfile="$(mktemp --tmpdir= icvim.XXXXXX)"
+common_tempfile lockfile
 edit_file "$lockfile" "$filename" &
 
 sleep 0.1
