@@ -15,7 +15,7 @@
 #
 
 # Increase this when functionality changes or new helper functions are added
-COMMON_VERSION=2
+COMMON_VERSION=3
 
 COMMON_CONFIG_LOCATION="$HOME/.config/$(basename $0).config"
 
@@ -436,4 +436,58 @@ expect_common_version() {
             echo "Warning: common.sh is version $COMMON_VERSION and script expects version $1." 1>&2
         fi
     fi
+}
+
+# Since COMMON_VERSION 3
+# Generate temporary file
+# Arguments 1:variable name where to store file name (optional) 2:template (optional) 3:path
+# With template characters X are replaced with random (when using mktemp) or pseudorandom
+# values (resort to bash).
+common_tempfile() {
+    if [ $# -lt 1 ]; then
+        echo "Internal error: Incorrect parameter count for common_tempfile()" 1>&2
+        exit 100
+    fi
+
+    local _store_to=$1
+    shift
+
+    local _template=
+    if [ $# -gt 0 ]; then
+        _template="$1"
+    else
+        _template="$(basename $0).$$.XXXXXX"
+    fi
+    shift
+
+    local _path="/tmp"
+    if [ $# -gt 0 ]; then
+        _path="$1"
+    fi
+
+    local _fn=
+
+    # Try mktemp first
+    if which mktemp >/dev/null; then
+        _fn="$(mktemp --tmpdir="$_path" "${_template}")"
+    else
+        local _n=
+        local _test=
+
+        if [ -z "$_path" ]; then
+            _path="/tmp"
+        fi
+
+        while [[ -z "$_test" || -f "$_path/$_test" ]]; do
+            _test="$_template"
+            while [[ "$_test" =~ "X" ]]; do
+                ((_n = RANDOM % 9))
+                _test="${_test/X/$_n}"
+            done
+        done
+        _fn="$_path/$_test"
+        touch "$_fn"
+    fi
+
+    printf -v "$_store_to" %s "$_fn"
 }
