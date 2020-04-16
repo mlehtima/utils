@@ -19,7 +19,7 @@
 SCRIPTPATH="$(dirname "`readlink -f $0`")"
 source "$SCRIPTPATH/common.sh" || exit 1
 
-SCRIPT_VERSION="1.1.0"
+SCRIPT_VERSION="1.2.0"
 expect_common_version 3
 check_config EDITOR=less
 need_binaries git grep sed
@@ -66,7 +66,7 @@ result=""
 print_log() {
     # only print when outside vim
     if [ -z "$VIMRUNTIME" ]; then
-        echo $@
+        echo "$@"
     fi
 }
 
@@ -89,12 +89,14 @@ git_submodules() {
 git branch > /dev/null 2>&1
 if [ $? -eq 0 ]; then
     need_binaries awk
+    use_git=1
     grepcommand="git grep -n"
     grepcommandpost=""
     # Let's print this already here if we wait for a long time for submodule list
     print_log -e -n "Grepping...\r"
     grepdirectories=". $(git_submodules)"
 else
+    use_git=0
     grepcommand="grep -r -n"
     grepcommandpost="*"
     grepdirectories="."
@@ -115,10 +117,45 @@ trap finish EXIT
 
 print_log -e -n "Grepping...\r"
 
-for d in $grepdirectories; do
-    pushd "$d" >/dev/null
-    $grepcommand -- "$search" $grepcommandpost | sed -e 's/\(.*:[0-9]\+\):/\1 :/' >> "$output"
+grep_directory() {
+    local dir=$1
+    local last=$2
+    if [[ ! -d "$dir" || "$dir" == ..* ]]; then
+        # Skip submodule if the submodule directory doesn't exist
+        # or the submodule path is not below our current path.
+        return
+    fi
+
+    pushd "$dir" >/dev/null
+
+    local path_prefix=
+    if [ "$dir" != "." ]; then
+        if [ -z "$VIMRUNTIME" ]; then
+            print_log -e -n "${last_log//?/ }\r"
+            last_log="Grepping $last$dir..."
+            print_log -e -n "$last_log\r"
+        fi
+        path_prefix="${last//\//\\/}${dir//\//\\/}\/"
+    fi
+
+    $grepcommand -- "$search" $grepcommandpost | sed -e 's/\(.*:[0-9]\+\):/'"$path_prefix"'\1 :/' >> "$output"
+
+    if [[ $use_git -eq 1 && "$dir" != "." && -f .gitmodules ]]; then
+        if [ -n "$last" ]; then
+            last="$last/$dir/"
+        else
+            last="$dir/"
+        fi
+        for add_d in $(git_submodules); do
+            grep_directory $add_d $last
+        done
+    fi
+
     popd >/dev/null
+}
+
+for d in $grepdirectories; do
+    grep_directory $d
 done
 
 hits=$(wc -l < "$output")
