@@ -82,12 +82,18 @@ write_output() {
     fi
 }
 
+git_submodules() {
+    git submodule status | awk 'BEGIN { ORS=" " } { print $2 }'
+}
+
 git branch > /dev/null 2>&1
 if [ $? -eq 0 ]; then
     need_binaries awk
     grepcommand="git grep -n"
     grepcommandpost=""
-    grepdirectories=". $(git submodule status | awk 'BEGIN { ORS=" " } { print $2 }')"
+    # Let's print this already here if we wait for a long time for submodule list
+    print_log -e -n "Grepping...\r"
+    grepdirectories=". $(git_submodules)"
 else
     grepcommand="grep -r -n"
     grepcommandpost="*"
