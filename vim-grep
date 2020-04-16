@@ -115,11 +115,11 @@ for d in $grepdirectories; do
     popd >/dev/null
 done
 
-if [ "$(wc -l < "$output")" -eq 0 ]; then
+hits=$(wc -l < "$output")
+if [ $hits -eq 0 ]; then
     exit 1
 fi
 
-hits=$(wc -l < "$output")
 plural=""
 if [ $hits -gt 1 ]; then
     plural="s"
