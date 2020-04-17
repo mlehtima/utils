@@ -4,7 +4,6 @@ script_version=2019.12.11
 
 SCRIPTPATH="$(dirname "`readlink -f $0`")"
 source "$SCRIPTPATH/update-common.sh" || exit 1
-expect_common_version 3
 
 OPT_SUBJECT_DEFAULT="%s: Update submodule."
 OPT_UPDATE_BRANCH_NAME_DEFAULT="update_submodule_%s"
