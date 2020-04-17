@@ -19,7 +19,7 @@
 SCRIPTPATH="$(dirname "`readlink -f $0`")"
 source "$SCRIPTPATH/common.sh" || exit 1
 
-SCRIPT_VERSION="1.2.0"
+SCRIPT_VERSION="1.2.1"
 expect_common_version 3
 check_config EDITOR=less
 need_binaries git grep sed
@@ -66,7 +66,9 @@ result=""
 print_log() {
     # only print when outside vim
     if [ -z "$VIMRUNTIME" ]; then
-        echo "$@"
+        echo -e -n "${last_log//?/ }\r"
+        last_log="$@"
+        echo -e -n "$last_log\r"
     fi
 }
 
@@ -86,14 +88,14 @@ git_submodules() {
     git submodule status | awk 'BEGIN { ORS=" " } { print $2 }'
 }
 
+print_log ">> Grepping..."
+
 git branch > /dev/null 2>&1
 if [ $? -eq 0 ]; then
     need_binaries awk
     use_git=1
     grepcommand="git grep -n"
     grepcommandpost=""
-    # Let's print this already here if we wait for a long time for submodule list
-    print_log -e -n "Grepping...\r"
     grepdirectories=". $(git_submodules)"
 else
     use_git=0
@@ -115,8 +117,6 @@ finish() {
 
 trap finish EXIT
 
-print_log -e -n "Grepping...\r"
-
 grep_directory() {
     local dir=$1
     local last=$2
@@ -130,11 +130,7 @@ grep_directory() {
 
     local path_prefix=
     if [ "$dir" != "." ]; then
-        if [ -z "$VIMRUNTIME" ]; then
-            print_log -e -n "${last_log//?/ }\r"
-            last_log="Grepping $last$dir..."
-            print_log -e -n "$last_log\r"
-        fi
+        print_log ">> Grepping $last$dir..."
         path_prefix="${last//\//\\/}${dir//\//\\/}\/"
     fi
 
@@ -163,6 +159,12 @@ if [ $hits -eq 0 ]; then
     exit 1
 fi
 
+# Going through all the lines with Bash is going
+# to take a while...
+if [ $hits -gt 1000 ]; then
+    print_log ">> Sorting..."
+fi
+
 plural=""
 if [ $hits -gt 1 ]; then
     plural="s"
@@ -179,6 +181,8 @@ while IFS='' read -r line || [[ -n "$line" ]]; do
     fi
     write_output "$line"
 done < "$output"
+
+print_log ""
 
 case $EDITOR in
     gvim)
