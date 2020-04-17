@@ -4,7 +4,6 @@ script_version=2019.11.22
 
 SCRIPTPATH="$(dirname "`readlink -f $0`")"
 source "$SCRIPTPATH/update-common.sh" || exit 1
-expect_common_version 3
 
 GLOBAL_CONFIG="$HOME/.config/update-manifest.conf"
 
