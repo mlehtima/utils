@@ -2,15 +2,16 @@
 
 # Requires spotify control script (sp) and/or music-on-console player (mocp)
 
-SCRIPT_VERSION=1.0.0
+SCRIPT_VERSION=1.1.0
 
-LAST_PLAYING="/tmp/playpause-lastplaying.tmp"
+LAST_PLAYING_FILE="/tmp/playpause-lastplaying.tmp"
+LAST_PLAYING=
 SPOT_RUNNING=0
 SPOT_PLAYING=0
 MOCP_RUNNING=0
 MOCP_PLAYING=0
 
-if [ $1 == "--version" ]; then
+if [ "$1" == "--version" ]; then
     echo "$(basename $0) v$SCRIPT_VERSION"
     exit 0
 fi
@@ -28,15 +29,83 @@ if [ ! -z "$(pidof mocp)" ]; then
     [ "$(mocp -i | grep State | cut -d' ' -f2)" == "PLAY" ] && MOCP_PLAYING=1
 fi
 
+if [ -f "$LAST_PLAYING_FILE" ]; then
+    LAST_PLAYING="$(cat $LAST_PLAYING_FILE)"
+fi
+
+_get_filename() {
+    local _r=
+    case $LAST_PLAYING in
+        mocp)       _r="$(mocp -Q %file)"                               ;;
+        spotify)    _r="<shouldn't see this>"                           ;;
+    esac
+    printf -v "$1" %s "$_r"
+}
+
+_get_artist() {
+    local _r=
+    case $LAST_PLAYING in
+        mocp)       _r="$(mocp -Q %artist)"                             ;;
+        spotify)    _r="$(sp current | grep '^Artist' | cut -b14-)"     ;;
+    esac
+    printf -v "$1" %s "$_r"
+}
+
+_get_album() {
+    local _r=
+    case $LAST_PLAYING in
+        mocp)       _r="$(mocp -Q %album)"                              ;;
+        spotify)    _r="$(sp current | grep '^Album ' | cut -b14-)"     ;;
+    esac
+    printf -v "$1" %s "$_r"
+}
+
+_get_track() {
+    local _r=
+    case $LAST_PLAYING in
+        mocp)       _r="$(mocp -Q %song)"                               ;;
+        spotify)    _r="$(sp current | grep '^Title' | cut -b14-)"      ;;
+    esac
+    printf -v "$1" %s "$_r"
+}
+
+_play_next() {
+    case $LAST_PLAYING in
+        mocp)       mocp --next                                         ;;
+        spotify)    sp next                                             ;;
+    esac
+}
+
+_play_prev() {
+    case $LAST_PLAYING in
+        mocp)       mocp --previous                                     ;;
+        spotify)    sp prev                                             ;;
+    esac
+}
+
+_play_pause() {
+    case $LAST_PLAYING in
+        mocp)       mocp --toggle-pause                                 ;;
+        spotify)    sp play                                             ;;
+    esac
+}
+
+_next_play_state() {
+    local _r=
+    case $LAST_PLAYING in
+        mocp)       [ $MOCP_PLAYING -eq 1 ] && _r="pause" || _r="play"  ;;
+        spotify)    [ $SPOT_PLAYING -eq 1 ] && _r="pause" || _r="play"  ;;
+    esac
+    printf -v "$1" %s "$_r"
+}
+
 case $1 in
     --next)
-        [ $SPOT_PLAYING -eq 1 ] && sp next
-        [ $MOCP_PLAYING -eq 1 ] && mocp --next
+        _play_next
         exit 0
         ;;
     --prev)
-        [ $SPOT_PLAYING -eq 1 ] && sp prev
-        [ $MOCP_PLAYING -eq 1 ] && mocp --previous
+        _play_prev
         exit 0
         ;;
     --ff)
@@ -44,14 +113,16 @@ case $1 in
         exit 0
         ;;
     --info)
-        if [ $MOCP_RUNNING -eq 1 ]; then
+        if [[ $MOCP_RUNNING -eq 1 || $SPOT_RUNNING -eq 1 ]]; then
             if which dmenu >/dev/null; then
                 _output=""
-                _artist="$(mocp -Q %artist)"
-                _album="$(mocp -Q %album)"
-                _track="$(mocp -Q %song)"
+                _use_filename=0
+                _get_artist _artist
+                _get_album _album
+                _get_track _track
                 if [[ -z "$_artist" && -z "$_album" && -z "$_track" ]]; then
-                    _output="$(mocp -Q %file)"
+                    _get_filename _output
+                    _use_filename=1
                 else
                     if [ -n "$_artist" ]; then
                         _output="$_artist"
@@ -67,17 +138,21 @@ case $1 in
                         _output="$_output ($_album)"
                     fi
                     if [[ -z "$_artist" || -z "$_album" || -z "$_track" ]]; then
-                        _output="$_output [$(mocp -Q %file)]"
+                        _get_filename _output
+                        _use_filename=1
                     fi
                 fi
+                if [[ $_use_filename -eq 1 && "$_output" == "$HOME/"* ]]; then
+                    _output="${_output/${HOME/\//\\/}/\~}"
+                fi
                 _cmds=""
-                [ $MOCP_PLAYING -eq 1 ] && _cmds="pause\n" || _cmds="play\n"
-                _cmds="${_cmds}next\nprev\n"
-                _cmd=$(echo -e "$_cmds$_output" | dmenu -l 4 -fn "Droid Sans Mono-20")
+                _next_play_state _cmds
+                _cmds="${_cmds}\nnext\nprevious\n"
+                _cmd=$(echo -e "${_cmds}>> ${_output} <<" | dmenu -l 4 -fn "Droid Sans Mono-20")
                 case $_cmd in
-                    pr*)    mocp --previous ;;
-                    p*)     mocp --toggle-pause ;;
-                    n*)     mocp --next ;;
+                    play|pause) _play_pause ;;
+                    previous)   _play_prev  ;;
+                    next)       _play_next  ;;
                 esac
             fi
         fi
@@ -85,23 +160,16 @@ case $1 in
         ;;
 esac
 
-# Pause Spotify
 if [ $SPOT_PLAYING -eq 1 ]; then
-    sp play
-    echo "spotify" > "$LAST_PLAYING"
+    LAST_PLAYING="spotify"
 fi
 
-# Pause mocp
 if [ $MOCP_PLAYING -eq 1 ]; then
-    mocp --toggle-pause
-    echo "mocp" > "$LAST_PLAYING"
+    LAST_PLAYING="mocp"
 fi
 
-if [[ $MOCP_PLAYING -eq 0 && $SPOT_PLAYING -eq 0 ]]; then
-    if [ -f "$LAST_PLAYING" ]; then
-        case "$(cat $LAST_PLAYING)" in
-            spotify)    [ $SPOT_RUNNING -eq 1 ] && sp play ;;
-            mocp)       [ $MOCP_RUNNING -eq 1 ] && mocp --toggle-pause ;;
-        esac
-    fi
+if [ -n "$LAST_PLAYING" ]; then
+    echo "$LAST_PLAYING" > "$LAST_PLAYING_FILE"
 fi
+
+_play_pause
