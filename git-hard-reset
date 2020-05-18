@@ -1,0 +1,6 @@
+#!/bin/bash
+
+git clean -xfd
+if [ $? -eq 0 ]; then
+    git reset --hard
+fi
