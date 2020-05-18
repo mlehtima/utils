@@ -2,19 +2,40 @@
 
 # Requires spotify control script (sp) and/or music-on-console player (mocp)
 
-SCRIPT_VERSION=1.1.0
+SCRIPT_VERSION=1.2.0
 
-LAST_PLAYING_FILE="/tmp/playpause-lastplaying.tmp"
+LAST_PLAYING_FILE="/tmp/$USER-playpause-lastplaying.tmp"
 LAST_PLAYING=
 SPOT_RUNNING=0
 SPOT_PLAYING=0
 MOCP_RUNNING=0
 MOCP_PLAYING=0
 
-if [ "$1" == "--version" ]; then
-    echo "$(basename $0) v$SCRIPT_VERSION"
-    exit 0
-fi
+case $1 in
+    -v|--version)
+        echo "$(basename $0) v$SCRIPT_VERSION"
+        exit 0
+        ;;
+    -h|--help)
+        echo "$(basename $0) v$SCRIPT_VERSION"
+        echo ""
+        echo "Control either music-on-console or spotify based on"
+        echo "which was last playing. Without arguments running $(basename $0)"
+        echo "toggles play/pause. In addition there are options for"
+        echo "additional actions."
+        echo ""
+        echo "  --next      Play next track (b)"
+        echo "  --prev      Play previous track (b)"
+        echo "  --ff        Fast forward 30 seconds (m)"
+        echo "  --info      Use dmenu to display information about"
+        echo "              currently playing song"
+        echo ""
+        echo " (command supported with music-on-console (m),"
+        echo "  spotify (s) or both (b))"
+        echo ""
+        exit 0
+        ;;
+esac
 
 # check if Spotify is running and playing
 sp status >/dev/null
@@ -42,32 +63,65 @@ _get_filename() {
     printf -v "$1" %s "$_r"
 }
 
-_get_artist() {
-    local _r=
+_get_track_info() {
+    local _var_artist=$1
+    local _var_album=$2
+    local _var_track=$3
+
+    local _found=0
+    local _str=
+
     case $LAST_PLAYING in
-        mocp)       _r="$(mocp -Q %artist)"                             ;;
-        spotify)    _r="$(sp current | grep '^Artist' | cut -b14-)"     ;;
+        mocp)       _str="$(mocp -Q %artist)"                           ;;
+        spotify)    _str="$(sp current | grep '^Artist' | cut -b14-)"   ;;
     esac
-    printf -v "$1" %s "$_r"
+    printf -v "$_var_artist" %s "$_str"
+    if [ -n "$_str" ]; then ((++_found)); fi
+
+    case $LAST_PLAYING in
+        mocp)       _str="$(mocp -Q %album)"                            ;;
+        spotify)    _str="$(sp current | grep '^Album ' | cut -b14-)"   ;;
+    esac
+    printf -v "$_var_album" %s "$_str"
+    if [ -n "$_str" ]; then ((++_found)); fi
+
+    case $LAST_PLAYING in
+        mocp)       _str="$(mocp -Q %song)"                             ;;
+        spotify)    _str="$(sp current | grep '^Title' | cut -b14-)"    ;;
+    esac
+    printf -v "$_var_track" %s "$_str"
+    if [ -n "$_str" ]; then ((++_found)); fi
+
+    if [ $_found -eq 0 ]; then
+        return 1
+    fi
+    return 0
 }
 
-_get_album() {
+_get_position() {
     local _r=
     case $LAST_PLAYING in
-        mocp)       _r="$(mocp -Q %album)"                              ;;
-        spotify)    _r="$(sp current | grep '^Album ' | cut -b14-)"     ;;
+        mocp)       _r="$(mocp -Q '%ct/%tt')"                           ;;
+        spotify)    _r=""                                               ;;
     esac
     printf -v "$1" %s "$_r"
+    if [ -n "$_r" ]; then return 0; else return 1; fi
 }
 
-_get_track() {
-    local _r=
-    case $LAST_PLAYING in
-        mocp)       _r="$(mocp -Q %song)"                               ;;
-        spotify)    _r="$(sp current | grep '^Title' | cut -b14-)"      ;;
-    esac
-    printf -v "$1" %s "$_r"
+_set_value() {
+    local _var=$1
+    local _test="$2"
+    local _val="$3"
+    local _if_empty="$4"
+    if [ -n "$_test" ]; then
+        printf -v "$_var" %s "$_val"
+    else
+        if [ -n "$_if_empty" ]; then
+            printf -v "$_var" %s "$_if_empty"
+        fi
+    fi
 }
+
 
 _play_next() {
     case $LAST_PLAYING in
@@ -116,34 +170,18 @@ case $1 in
         if [[ $MOCP_RUNNING -eq 1 || $SPOT_RUNNING -eq 1 ]]; then
             if which dmenu >/dev/null; then
                 _output=""
-                _use_filename=0
-                _get_artist _artist
-                _get_album _album
-                _get_track _track
-                if [[ -z "$_artist" && -z "$_album" && -z "$_track" ]]; then
-                    _get_filename _output
-                    _use_filename=1
+                if _get_track_info _artist _album _track; then
+                    _set_value _output "$_artist"   "$_artist"              "<Unknown artist>"
+                    _set_value _output "$_track"    "$_output - $_track"    "$_output - <Unknown track>"
+                    _set_value _output "$_album"    "$_output ($_album)"
                 else
-                    if [ -n "$_artist" ]; then
-                        _output="$_artist"
-                    else
-                        _output="<Unknown artist>"
-                    fi
-                    if [ -n "$_track" ]; then
-                        _output="$_output - $_track"
-                    else
-                        _output="$_output - <Unknown track>"
-                    fi
-                    if [ -n "$_album" ]; then
-                        _output="$_output ($_album)"
-                    fi
-                    if [[ -z "$_artist" || -z "$_album" || -z "$_track" ]]; then
-                        _get_filename _output
-                        _use_filename=1
+                    _get_filename _output
+                    if [[ "$_output" == "$HOME/"* ]]; then
+                        _output="${_output/${HOME/\//\\/}/\~}"
                     fi
                 fi
-                if [[ $_use_filename -eq 1 && "$_output" == "$HOME/"* ]]; then
-                    _output="${_output/${HOME/\//\\/}/\~}"
+                if _get_position _position; then
+                    _output="$_output [$_position]"
                 fi
                 _cmds=""
                 _next_play_state _cmds
