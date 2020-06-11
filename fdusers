@@ -1,10 +1,11 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 # vim: set noexpandtab tabstop=4:
 
 import os
 import sys
 import psutil
+from functools import cmp_to_key
 
 # defaults
 MINFD = 100
@@ -24,11 +25,11 @@ def usage():
 def sort_by_fds(a, b):
 	try:
 		a_fds = a.num_fds()
-	except psutil.NoSuchProcess, psutil.AccessDenied:
+	except (psutil.NoSuchProcess, psutil.AccessDenied):
 		a_fds = 0
 	try:
 		b_fds = b.num_fds()
-	except psutil.NoSuchProcess, psutil.AccessDenied:
+	except (psutil.NoSuchProcess, psutil.AccessDenied):
 		b_fds = 0
 
 	if a_fds > b_fds:
@@ -68,14 +69,14 @@ def main():
 
 	# process_iter() outputs the list as ascending pids.
 	if not SORT_BY_PID:
-		our_p.sort(sort_by_fds)
+		our_p.sort(key=cmp_to_key(lambda a, b: sort_by_fds(a, b)))
 
 	print("PID".rjust(6) + "FDs".rjust(6) + "cmd".rjust(4))
 
 	for p in our_p:
 		try:
 			print("{0:6d} {1:5d} {2:s}".format(p.pid, p.num_fds(), p.exe()))
-		except psutil.NoSuchProcess, psutil.AccessDenied:
+		except (psutil.NoSuchProcess, psutil.AccessDenied):
 			pass
 
 if __name__ == "__main__":
