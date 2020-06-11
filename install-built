@@ -153,6 +153,8 @@ if [ -z "$wildcards" ]; then
     to_copy=
     to_install=
     for package in $check_installed; do
+        bn="$(basename $package)"
+        echo -e -n "\rchecking ${bn:0:20}...            \r"
         p="$(rpm -qp $package --qf '%{NAME}')"
         ssh -q $remote rpm -qi "$p" >/dev/null
         if [ $? -eq 0 ]; then
@@ -161,6 +163,7 @@ if [ -z "$wildcards" ]; then
             to_install="$to_install $fname"
         fi
     done
+    echo -e -n "                                \r"
 fi
 
 if [ -z "$to_copy" ]; then
@@ -168,8 +171,10 @@ if [ -z "$to_copy" ]; then
     exit 1
 fi
 
+echo -e -n "\rcopying files to device..."
 # first copy...
 scp -q $to_copy $remote:/tmp
 
+echo -e -n "\rinstalling...             \r"
 # then install and delete...
 ssh -q $remote "cd /tmp && rpm -v -U $install_opts --force $to_install ; rm -f $to_install"
