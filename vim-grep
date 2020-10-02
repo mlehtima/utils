@@ -19,7 +19,7 @@
 SCRIPTPATH="$(dirname "`readlink -f $0`")"
 source "$SCRIPTPATH/common.sh" || exit 1
 
-SCRIPT_VERSION="1.2.1"
+SCRIPT_VERSION="1.2.2"
 expect_common_version 3
 check_config EDITOR=less
 need_binaries git grep sed
@@ -94,7 +94,7 @@ git branch > /dev/null 2>&1
 if [ $? -eq 0 ]; then
     need_binaries awk
     use_git=1
-    grepcommand="git grep -n"
+    grepcommand="git grep -I -n"
     grepcommandpost=""
     grepdirectories=". $(git_submodules)"
 else
