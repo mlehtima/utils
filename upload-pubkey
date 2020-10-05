@@ -1,5 +1,11 @@
 #!/bin/bash
 
+# v7:
+#   - Set default user to "defaultuser".
+#
+# v6:
+#   - Add help page.
+#
 # v5:
 #   - Add -s|--scripts option to only run extra scripts from upload-pubkey.d
 #     directory. Add bash autocompletion support.
@@ -21,9 +27,9 @@
 #   - use sshpass if available so that password needs to be typed only once
 #   - provide the password to devel-su from stdin to avoid visible password
 
-SCRIPT_VERSION=6
+SCRIPT_VERSION=7
 DEFAULT_KEY="$HOME/.ssh/id_rsa.pub"
-DEFAULT_USER="nemo"
+DEFAULT_USER="defaultuser"
 DEFAULT_HOST="192.168.2.15"
 DEFAULT_RUN_SCRIPTS="1"
 DEFAULT_CONFIG="$HOME/.config/upload-pubkey"
