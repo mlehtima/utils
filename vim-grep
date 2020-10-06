@@ -19,9 +19,9 @@
 SCRIPTPATH="$(dirname "`readlink -f $0`")"
 source "$SCRIPTPATH/common.sh" || exit 1
 
-SCRIPT_VERSION="1.2.2"
+SCRIPT_VERSION="1.3.0"
 expect_common_version 3
-check_config EDITOR=less
+check_config EDITOR=less FORCE_GREP=0
 need_binaries git grep sed
 
 print_usage() {
@@ -31,6 +31,7 @@ print_usage() {
     echo "  in $COMMON_CONFIG_LOCATION"
     echo ""
     echo "  -h|--help               Print this help"
+    echo "  -g|--grep               Use grep even when grepping from git tree"
     echo "  -e|--editor             Override default editor used to view results"
     echo "                            (default: $EDITOR)"
     echo ""
@@ -54,6 +55,7 @@ handle_options \
     "min-arguments: 1                                 " \
     "missing:       args_missing                      " \
     "-h,--help,     0,  print_usage                   " \
+    "-g,--grep,     0,  FORCE_GREP                    " \
     "-e,--editor,   1,  EDITOR                        " \
     ---                                                 \
     "$@"
@@ -90,15 +92,20 @@ git_submodules() {
 
 print_log ">> Grepping..."
 
-git branch > /dev/null 2>&1
-if [ $? -eq 0 ]; then
+use_git=0
+if [ $FORCE_GREP -eq 0 ]; then
+    git branch > /dev/null 2>&1
+    if [ $? -eq 0 ]; then
+        use_git=1
+    fi
+fi
+
+if [ $use_git -eq 1 ]; then
     need_binaries awk
-    use_git=1
     grepcommand="git grep -I -n"
     grepcommandpost=""
     grepdirectories=". $(git_submodules)"
 else
-    use_git=0
     grepcommand="grep -r -n"
     grepcommandpost="*"
     grepdirectories="."
