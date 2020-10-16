@@ -1,0 +1,83 @@
+#!/bin/bash
+
+# Simple wrapper for openfortivpn binary
+
+VPN_NAME="openfortivpn"
+VPN_PATH="/tmp/$USER/$VPN_NAME"
+LOG_FILE="$VPN_PATH/log"
+CONF_PATH="$HOME/.$VPN_NAME"
+CONF_FILE="$CONF_PATH/config"
+
+if [ ! -f "$CONF_FILE" ]; then
+    echo "configuration file needed in $CONF_FILE"
+    exit 1
+fi
+
+if [ ! -d "$VPN_PATH" ]; then
+    mkdir -p "$VPN_PATH"
+    chmod go-rwx "$VPN_PATH"
+fi
+
+PID="$(pidof $VPN_NAME)"
+
+_start() {
+    if [ -n "$PID" ]; then
+        echo "$VPN_NAME already running with pid $PID"
+        exit 0
+    fi
+
+    sudo echo -n ""
+    if [ $? -eq 0 ]; then
+        sudo $VPN_NAME -c "$CONF_FILE" 1>/$LOG_FILE 2>&1 &
+    else
+        echo "Couldn't start $VPN_NAME"
+        exit 1
+    fi
+}
+
+_stop() {
+    if [ -z "$PID" ]; then
+        exit 0
+    fi
+
+    local PID=$(pidof $VPN_NAME)
+    if [ -n "$PID" ]; then
+        sudo kill $1 $PID
+    fi
+}
+
+_print_status() {
+    if [[ -n "$PID" && -n "$(grep "Tunnel is up and running" "$LOG_FILE")" ]]; then
+        echo "Status: RUNNING"
+        grep "local  IP" "$LOG_FILE"
+        grep "remote IP" "$LOG_FILE"
+    else
+        echo "Status: DOWN"
+    fi
+}
+
+case $1 in
+    start)
+        _start
+        ;;
+    stop)
+        shift
+        _stop $1
+        ;;
+    -h|--help|help)
+        echo "$(basename $0) - Simple wrapper for openfortivpn"
+        echo ""
+        echo "  Openfortivpn configuration file needs to be found from"
+        echo "  $CONF_FILE"
+        echo ""
+        echo "  Actions:"
+        echo "    start     Start VPN"
+        echo "    stop      Stop VPN"
+        echo "    status    Current status of the VPN"
+        echo ""
+        exit 0
+        ;;
+    *)
+        _print_status
+        ;;
+esac
