@@ -33,6 +33,9 @@ LOG_STR[STATE_RUNNING]  = "\x1b[94m{0}\x1b[39m"
 LOG_STR[STATE_DONE]     = "\x1b[32m{0}\x1b[39m"
 LOG_STR[STATE_FAIL]     = "\x1b[31m{0}\x1b[39m"
 
+PAGER_GUI               = [ "gvim", "-" ]
+PAGER_CLI               = [ "less", "-N" ]
+
 def state_str(state):
     if state == STATE_CREATED:
         return "CREATED"
@@ -221,6 +224,17 @@ def log(idno):
     else:
         log_err("No task with id {}.".format(idno))
 
+def lastlog():
+    idno = latest_task_id(-1)
+    found, text = sdk_method("Log")(idno)
+    if found:
+        if sys.stdin.isatty():
+            args = PAGER_CLI
+        else:
+            args = PAGER_GUI
+        p = Popen(args, stdin=PIPE, close_fds=True)
+        ret = p.communicate(input=text.encode())
+
 def cancel(idno):
     idno = latest_task_id(idno)
     if idno > 0:
@@ -370,6 +384,9 @@ def main():
             log(sys_int_val(2, default=-1))
         else:
             print_tasks()
+
+    elif cmd == "lastlog":
+        lastlog()
 
     elif cmd == "cancel":
         if sys_args1("all"):
