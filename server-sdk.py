@@ -40,12 +40,14 @@ class WorkerPrinter():
         self.reset()
 
         self._match = []
+        #                              regex                                    format      is error
         self._match.append((re.compile(r'^.*:\d+:\d+: error:'),                 ERROR_STR,  True    ))
         self._match.append((re.compile(r'^.*:\d+:\d+: fatal error:'),           ERROR_STR,  True    ))
         self._match.append((re.compile(r'^.*No rule to make target.*Stop.'),    ERROR_STR,  True    ))
         self._match.append((re.compile(r'^.*:\d+: error:'),                     ERROR_STR,  True    ))
         self._match.append((re.compile(r'^.*: error:'),                         ERROR_STR,  True    ))
         self._match.append((re.compile(r'^FAILED:'),                            ERROR_STR,  True    ))
+        self._match.append((re.compile(r'^.*:\d+: undefined reference to'),     ERROR_STR,  True    ))
         self._match.append((re.compile(r'^.*:\d+:\d+: warning:'),               WARN_STR,   False   ))
 
         self._queue = queue.Queue()
