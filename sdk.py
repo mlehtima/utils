@@ -204,7 +204,16 @@ def follow_task(idno):
             log_err("No running tasks found.")
     follow_task_hack_execlp(idno)
 
+def latest_task_id(idno):
+    if idno < 0:
+        tasks = sdk_method("Tasks")()
+        for idn, state, full_path, cmd, ret, duration in tasks:
+            if idn > idno:
+                idno = idn
+    return idno
+
 def log(idno):
+    idno = latest_task_id(idno)
     found, text = sdk_method("Log")(idno)
     if found:
         sys.stdout.write(text)
@@ -213,11 +222,7 @@ def log(idno):
         log_err("No task with id {}.".format(idno))
 
 def cancel(idno):
-    if idno < 0:
-        tasks = sdk_method("Tasks")()
-        for idn, state, full_path, cmd, ret, duration in tasks:
-            if idn > idno:
-                idno = idn
+    idno = latest_task_id(idno)
     if idno > 0:
         sdk_method("CancelTask")(idno)
 
@@ -362,7 +367,7 @@ def main():
         elif sys_args1("--follow-hack"):
             follow_task_hack(sys_int_val(2))
         elif sys_args1("--log", "-l"):
-            log(sys_int_val(2))
+            log(sys_int_val(2, default=-1))
         else:
             print_tasks()
 
