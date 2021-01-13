@@ -13,7 +13,7 @@ check_config \
     WATCH_FOR_FILE="false" \
     WATCH_PATTERN="rpm/*.spec.*"
 
-SCRIPT_VERSION="6"
+SCRIPT_VERSION="7"
 current_dir="$PWD"
 rpms_dir=
 to_copy=
@@ -149,19 +149,23 @@ for package in "$rpms_dir/"*.rpm; do
 done
 
 if [ -z "$wildcards" ]; then
+    echo -e -n "\rchecking installed packages...\r"
     check_installed="$to_copy"
     to_copy=
     to_install=
+    remote_cmd="for p in"
+    remote_tmp="/tmp/$(basename $0).$RANDOM"
     for package in $check_installed; do
+        base_path="${package%/*}"
         bn="$(basename $package)"
-        echo -e -n "\rchecking ${bn:0:20}...            \r"
         p="$(rpm -qp $package --qf '%{NAME}')"
-        ssh -q $remote rpm -qi "$p" >/dev/null
-        if [ $? -eq 0 ]; then
-            fname="$(basename $package)"
-            to_copy="$to_copy $package"
-            to_install="$to_install $fname"
-        fi
+        remote_cmd="$remote_cmd $p:$bn"
+    done
+    remote_cmd="$remote_cmd; do package=\${p%:*}; fn=\${p#*:}; rpm -qi \$package >/dev/null; if [ \$? -eq 0 ]; then echo \$fn; fi; done"
+    installed=$(echo "$remote_cmd" | ssh -q $remote "cat > $remote_tmp; sh $remote_tmp; rm -f $remote_tmp")
+    for package in $installed; do
+        to_install="$to_install $package"
+        to_copy="$to_copy $base_path/$package"
     done
     echo -e -n "                                \r"
 fi
@@ -171,7 +175,7 @@ if [ -z "$to_copy" ]; then
     exit 1
 fi
 
-echo -e -n "\rcopying files to device..."
+echo -e -n "\rcopying files to device...\r"
 # first copy...
 scp -q $to_copy $remote:/tmp
 
