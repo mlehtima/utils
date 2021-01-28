@@ -1,7 +1,7 @@
 #!/bin/bash
 
-VERSION="1.2.1"
-VERSION_DATE="08/04/2020"
+VERSION="1.3.0"
+VERSION_DATE="28/01/2021"
 GIT_NEW_TAG_MAN_PATH="/usr/local/share/man/man1"
 TAG_MSG_MSG=
 TAG_ANNOTATE=
@@ -23,9 +23,10 @@ git-new-tag \- Intelligent tag increase
 .SH SYNOPSIS
 .sp
 .nf
-\fIgit new-tag\fR [\-1] [\-2] [\-3] [\-4] [\-r] [\-g]
+\fIgit new-tag\fR [\-1] [\-2] [\-3] [\-4] [\-5] [\-r] [\-g]
             [\-a] [\-m <msg>]
-            [\-p <prefix]
+            [\-p <prefix>]
+            [\-d <level>]
             [\-e]
 .fi
 .sp
@@ -39,8 +40,10 @@ manpage_option -1 --major "Increase major value."
 manpage_option -2 --minor "Increase minor value."
 manpage_option -3 --micro "Increase micro value."
 manpage_option -4 --patch "Increase patch value."
+manpage_option -5 --extra "Increase extra value."
 manpage_option -r --release "Increase release value."
 manpage_option -g --git "Increase git suffix."
+manpage_option -d --drop "Drop version numbers including and below defined level."
 manpage_option -p --prefix "Add or modify prefix for the tag."
 manpage_option -e --edit "Edit tag string (using \$EDITOR)."
 echo '
@@ -55,7 +58,7 @@ External tool for the \fBgit\fR(1) suite
 
 case $1 in
     --autocomplete)
-        echo -e "--help\n-1\n--major\n-2\n--minor\n-3\n--micro\n-4\n--patch\n-g\n--git\n-m\n--message\n-a\n--annotate\n-p\n--prefix\n-r\n--relase\n-e\n--edit"
+        echo -e "--help\n-1\n--major\n-2\n--minor\n-3\n--micro\n-4\n--patch\n-5\n--extra\n-g\n--git\n-d\n--drop\n-m\n--message\n-a\n--annotate\n-p\n--prefix\n-r\n--relase\n-e\n--edit"
         exit 0
         ;;
     --manpage)
@@ -81,6 +84,9 @@ fi
 
 current="$current_full"
 
+# don't drop anything
+drop_level=100
+
 current_prefix=
 if [[ "$current" =~ '/' ]]; then
     current_prefix=${current%/*}/
@@ -104,6 +110,7 @@ if [[ "$current" =~ '.' ]]; then
     current_minor=$(echo "$current" | cut -d- -f1 | cut -d. -f2)
     current_micro=$(echo "$current" | cut -d- -f1 | cut -d. -f3)
     current_patch=$(echo "$current" | cut -d- -f1 | cut -d. -f4)
+    current_extra=$(echo "$current" | cut -d- -f1 | cut -d. -f5)
 else
     current_major=$(echo "$current" | cut -d- -f1)
 fi
@@ -125,7 +132,7 @@ fi
 parts=$(echo "$current_full" | grep -o '\.' | wc -l)
 
 if [ -n "$DEBUG" ]; then
-    echo "full '$current_full' ($parts) prefix '$current_prefix' major-prefix '$major_prefix' major '$current_major' minor '$current_minor' micro '$current_micro' patch '$current_patch' git '$current_git' release '$current_release'"
+    echo "full '$current_full' ($parts) prefix '$current_prefix' major-prefix '$major_prefix' major '$current_major' minor '$current_minor' micro '$current_micro' patch '$current_patch' extra '$current_extra' git '$current_git' release '$current_release'"
 fi
 
 while [ $# -gt 0 ]; do
@@ -138,31 +145,44 @@ while [ $# -gt 0 ]; do
             if [ -n "$current_micro" ]; then
                 current_micro=0
             fi
+            if [ -n "$current_patch" ]; then
+                current_patch=0
+            fi
+            if [ -n "$current_extra" ]; then
+                current_extra=0
+            fi
             if [ -n "$current_git" ]; then
                 current_git=1
             fi
             if [ -n "$current_release" ]; then
                 current_release=1
             fi
-            current_patch=
             ;;
         -2|--minor)
             ((++current_minor))
             if [ -n "$current_micro" ]; then
                 current_micro=0
             fi
+            if [ -n "$current_patch" ]; then
+                current_patch=0
+            fi
+            if [ -n "$current_extra" ]; then
+                current_extra=0
+            fi
             if [ -n "$current_git" ]; then
                 current_git=1
             fi
             if [ -n "$current_release" ]; then
                 current_release=1
             fi
-            current_patch=
             ;;
         -3|--micro)
             ((++current_micro))
-            if [ -z "$current_minor" ]; then
-                current_minor=0
+            if [ -n "$current_patch" ]; then
+                current_patch=0
+            fi
+            if [ -n "$current_extra" ]; then
+                current_extra=0
             fi
             if [ -n "$current_git" ]; then
                 current_git=1
@@ -170,7 +190,6 @@ while [ $# -gt 0 ]; do
             if [ -n "$current_release" ]; then
                 current_release=1
             fi
-            current_patch=
             ;;
         -4|--patch)
             if [ -z "$current_patch" ]; then
@@ -182,6 +201,30 @@ while [ $# -gt 0 ]; do
             fi
             if [ -z "$current_micro" ]; then
                 current_micro=0
+            fi
+            if [ -n "$current_extra" ]; then
+                current_extra=0
+            fi
+            if [ -n "$current_git" ]; then
+                current_git=1
+            fi
+            if [ -n "$current_release" ]; then
+                current_release=1
+            fi
+            ;;
+        -5|--extra)
+            if [ -z "$current_extra" ]; then
+                current_extra=0
+            fi
+            ((++current_extra))
+            if [ -z "$current_patch" ]; then
+                current_patch=0
+            fi
+            if [ -z "$current_micro" ]; then
+                current_micro=0
+            fi
+            if [ -z "$current_minor" ]; then
+                current_minor=0
             fi
             if [ -n "$current_git" ]; then
                 current_git=1
@@ -195,6 +238,22 @@ while [ $# -gt 0 ]; do
             ;;
         -g|--git)
             ((++current_git))
+            ;;
+        -d|--drop)
+            shift
+            for val in 2 3 4 5 6 7 r g; do
+                if [ "$1" == "$val" ]; then
+                    match=$1
+                    break
+                fi
+            done
+            if [ -z "$match" ]; then
+                echo "invalid argument for --drop: '$1'"
+                exit 1
+            fi
+            if [ $match == "r" ]; then match=6; fi
+            if [ $match == "g" ]; then match=7; fi
+            drop_level=$match
             ;;
         -m|--message)
             shift
@@ -218,20 +277,35 @@ done
 new_tag=$current_prefix
 new_tag=$new_tag$major_prefix
 new_tag=$new_tag$current_major
-if [ -n "$current_minor" ]; then
-    new_tag=$new_tag.$current_minor
+if [ $drop_level -gt 2 ]; then
+    if [ -n "$current_minor" ]; then
+        new_tag=$new_tag.$current_minor
+    fi
 fi
-if [ -n "$current_micro" ]; then
-    new_tag=$new_tag.$current_micro
+if [ $drop_level -gt 3 ]; then
+    if [ -n "$current_micro" ]; then
+        new_tag=$new_tag.$current_micro
+    fi
 fi
-if [ -n "$current_patch" ]; then
-    new_tag=$new_tag.$current_patch
+if [ $drop_level -gt 4 ]; then
+    if [ -n "$current_patch" ]; then
+        new_tag=$new_tag.$current_patch
+    fi
 fi
-if [ -n "$current_release" ]; then
-    new_tag=$new_tag-$current_release
+if [ $drop_level -gt 5 ]; then
+    if [ -n "$current_extra" ]; then
+        new_tag=$new_tag.$current_extra
+    fi
 fi
-if [ -n "$current_git" ]; then
-    new_tag=$new_tag+git$current_git
+if [ $drop_level -gt 6 ]; then
+    if [ -n "$current_release" ]; then
+        new_tag=$new_tag-$current_release
+    fi
+fi
+if [ $drop_level -gt 7 ]; then
+    if [ -n "$current_git" ]; then
+        new_tag=$new_tag+git$current_git
+    fi
 fi
 if [ -n "$NEW_PREFIX" ]; then
     new_tag="$NEW_PREFIX$new_tag"
