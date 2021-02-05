@@ -49,6 +49,7 @@ ftypes = [
 	Handler('exe',      ['innoextract'],      'Inno Setup package (.exe).',                       'innoextract -s "%s"',      [r'\.exe$']),
 	Handler('rcore',    ['rich-core-extract'],'Rich core.',                                       'rich-core-extract "%s"',   [r'\.rcore$', r'\.rcore\.lzo$', r'\.rcore\.gz$']),
 	Handler('lzo',      ['lzop'],             'Lempel-Ziv-Oberhumer packer.',                     'lzop -d "%s"',             [r'\.lzo$']),
+	Handler('apk',      ['apktool'],          'Android application package.',                     'apktool decode "%s"',      [r'\.apk$']),
 ]
 
 def vprint(v, s):
