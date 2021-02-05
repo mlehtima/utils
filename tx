@@ -7,7 +7,7 @@ tx - unpack multiple compressed file types
 
 Public domain.
 
-Juho Hämäläinen 2008-2020  jusa@hilvi.org
+Juho Hämäläinen 2008-2021  jusa@hilvi.org
 
 """
 
@@ -18,7 +18,7 @@ import re
 from optparse import OptionParser, SUPPRESS_HELP
 from subprocess import DEVNULL
 
-VERSION = 0.6
+VERSION = 0.7
 
 class Handler:
 	def __init__(self, name, binaries, desc, action, ext):
