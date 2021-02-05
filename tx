@@ -50,6 +50,7 @@ ftypes = [
 	Handler('rcore',    ['rich-core-extract'],'Rich core.',                                       'rich-core-extract "%s"',   [r'\.rcore$', r'\.rcore\.lzo$', r'\.rcore\.gz$']),
 	Handler('lzo',      ['lzop'],             'Lempel-Ziv-Oberhumer packer.',                     'lzop -d "%s"',             [r'\.lzo$']),
 	Handler('apk',      ['apktool'],          'Android application package.',                     'apktool decode "%s"',      [r'\.apk$']),
+	Handler('lz4',      ['lz4'],              'LZ4 archive',                                      'lz4 -d "%s"',              [r'\.lz4$']),
 ]
 
 def vprint(v, s):
