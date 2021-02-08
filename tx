@@ -18,7 +18,7 @@ import re
 from optparse import OptionParser, SUPPRESS_HELP
 from subprocess import DEVNULL
 
-VERSION = 0.7
+VERSION = 0.8
 
 class Handler:
 	def __init__(self, name, binaries, desc, action, ext):
@@ -35,9 +35,11 @@ ftypes = [
 	Handler('tar.gz',   ['tar', 'gunzip'],    'Tar archive compressed with gzip.',                'tar -x -z -f "%s"',        [r'\.tar\.gz$', r'\.tgz$']),
 	Handler('tar.bz2',  ['tar', 'bunzip2'],   'Tar archive compressed with bzip2.',               'tar -x -j -f "%s"',        [r'\.tar\.bz2$', r'\.tbz2$']),
 	Handler('tar.xz',   ['tar', 'unxz'],      'Tar archive compressed with xz.',                  'unxz -c "%s" | tar -x',    [r'\.tar\.xz$', r'\.txz$']),
+	Handler('tar.lz4',  ['tar', 'lz4'],       'Tar archive compressed with lz4.',                 'lz4 -d "%s" -c | tar -x',  [r'\.tar\.lz4$']),
 	Handler('gz',       ['gunzip'],           'File compressed with gzip.',                       'gunzip "%s"',              [r'\.gz$']),
 	Handler('bz2',      ['bunzip2'],          'File compressed with bzip2.',                      'bunzip2 "%s"',             [r'\.bz2$']),
 	Handler('xz',       ['unxz'],             'Xz archive.',                                      'unxz -k "%s"',             [r'\.xz$']),
+	Handler('lz4',      ['lz4'],              'LZ4 archive',                                      'lz4 -d "%s"',              [r'\.lz4$']),
 	Handler('zip',      ['unzip'],            'Zip archive.',                                     'unzip -q "%s"',            [r'\.zip$']),
 	Handler('rar',      ['unrar'],            'Rar archive.',                                     'unrar x "%s"',             [r'\.rar$']),
 	Handler('ace',      ['unace'],            'Ace archive.',                                     'unace x "%s"',             [r'\.ace$']),
@@ -50,7 +52,6 @@ ftypes = [
 	Handler('rcore',    ['rich-core-extract'],'Rich core.',                                       'rich-core-extract "%s"',   [r'\.rcore$', r'\.rcore\.lzo$', r'\.rcore\.gz$']),
 	Handler('lzo',      ['lzop'],             'Lempel-Ziv-Oberhumer packer.',                     'lzop -d "%s"',             [r'\.lzo$']),
 	Handler('apk',      ['apktool'],          'Android application package.',                     'apktool decode "%s"',      [r'\.apk$']),
-	Handler('lz4',      ['lz4'],              'LZ4 archive',                                      'lz4 -d "%s"',              [r'\.lz4$']),
 ]
 
 def vprint(v, s):
