@@ -58,3 +58,52 @@ leave_dir() {
     print_debug "# Leave $1"
     popd 1>/dev/null 2>&1
 }
+
+common_tempfile() {
+    if [ $# -lt 1 ]; then
+        echo "Internal error: Incorrect parameter count for common_tempfile()" 1>&2
+        exit 100
+    fi
+
+    local _store_to=$1
+    shift
+
+    local _template=
+    if [ $# -gt 0 ]; then
+        _template="$1"
+    else
+        _template="$(basename $0).$$.XXXXXX"
+    fi
+    shift
+
+    local _path="/tmp"
+    if [ $# -gt 0 ]; then
+        _path="$1"
+    fi
+
+    local _fn=
+
+    # Try mktemp first
+    if which mktemp >/dev/null; then
+        _fn="$(mktemp --tmpdir="$_path" "${_template}")"
+    else
+        local _n=
+        local _test=
+
+        if [ -z "$_path" ]; then
+            _path="/tmp"
+        fi
+
+        while [[ -z "$_test" || -f "$_path/$_test" ]]; do
+            _test="$_template"
+            while [[ "$_test" =~ "X" ]]; do
+                ((_n = RANDOM % 9))
+                _test="${_test/X/$_n}"
+            done
+        done
+        _fn="$_path/$_test"
+        touch "$_fn"
+    fi
+
+    printf -v "$_store_to" %s "$_fn"
+}
