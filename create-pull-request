@@ -1,0 +1,178 @@
+#!/bin/bash
+
+script_version=2021.03.26
+
+SCRIPTPATH="$(dirname "`readlink -f $0`")"
+source "$SCRIPTPATH/update-common.sh" || exit 1
+
+
+OPT_REMOTE=
+# if branch is one of these space separated branches abort
+OPT_AVOID_BRANCHES="master"
+OPT_WRITE_CONFIG=0
+OPT_FORCE=
+OPT_OPEN=1
+
+check_bin git awk grep tempfile expand tee xdg-open
+
+top_dir="$(git rev-parse --show-toplevel)"
+if [ $? -ne 0 ]; then
+    exit 1
+fi
+
+GLOBAL_CONFIG="$HOME/.config/create-pull-request.conf"
+PER_REPOSITORY_CONFIG="$top_dir/.git/create-pull-request.conf"
+
+if [ -f "$GLOBAL_CONFIG" ]; then
+    source "$GLOBAL_CONFIG"
+fi
+
+if [ -f "$PER_REPOSITORY_CONFIG" ]; then
+    source "$PER_REPOSITORY_CONFIG"
+fi
+
+if [ -n "$REMOTE" ]; then
+    OPT_REMOTE="$REMOTE"
+    unset REMOTE
+fi
+if [ -n "$AVOID_BRANCHES" ]; then
+    OPT_AVOID_BRANCHES="$AVOID_BRANCHES"
+    unset AVOID_BRANCHES
+fi
+
+print_help() {
+    echo "Usage: $(basename $0) [OPTIONS]"
+    echo ""
+    echo "Push currently active branch to remote. If remote SCM prints an URL for creating"
+    echo "a pull request, open the URL with xdg-open."
+    echo ""
+    echo "Arguments for remote and avoid can be saved to per-repository or global config."
+    echo ""
+    echo "OPTIONS"
+    echo ""
+    echo "  -h, --help      This help."
+    echo "      --version   Print version."
+    echo "  -v, --verbose   Print all commands and additional debugs."
+    echo "      --config    Save per-repository config."
+    echo "  -r, --remote    Where to push current branch for Pull Request."
+    echo "  -a, --avoid     A list of branches which shouldn't be pushed."
+    echo "  -f, --force     Force push."
+    echo "  -n, --dont-open Don't open Pull Request URL even if one is found."
+    echo ""
+}
+
+while [ $# -gt 0 ]; do
+    case $1 in
+        --autocomplete)
+            echo "-v --version --verbose --help -h --avoid -a --config --force -f --remote -r --dont-open -n"
+            exit 0
+            ;;
+        -h|--help)
+            print_help
+            exit 0
+            ;;
+        --version)
+            print_version
+            exit 0
+            ;;
+        -v|--verbose)
+            DEBUG=1
+            ;;
+        -a|--avoid)
+            shift
+            OPT_AVOID_BRANCHES="$1"
+            ;;
+        --config)
+            OPT_WRITE_CONFIG=1
+            ;;
+        -f|--force)
+            OPT_FORCE="--force"
+            ;;
+        -r|--remote)
+            shift
+            OPT_REMOTE="$1"
+            ;;
+        -n|--dont-open)
+            OPT_OPEN=0
+            ;;
+        *)
+            echo "Unknown option '$1'"
+            exit 1
+            ;;
+    esac
+    shift
+done
+
+
+if [ $OPT_WRITE_CONFIG -eq 1 ]; then
+    print_normal "Writing repository specific config to %nc$PER_REPOSITORY_CONFIG"
+    cat > "$PER_REPOSITORY_CONFIG" << EOF
+REMOTE=$OPT_REMOTE
+AVOID_BRANCHES="$OPT_AVOID_BRANCHES"
+EOF
+    exit 0
+fi
+
+remotes="$(git remote -v | grep "(push)$" | awk '{ print $1 }' | wc -l)"
+
+if [ $remotes -eq 0 ]; then
+    print_error "Repository has no remotes."
+    exit 1
+fi
+
+if [ -z "$OPT_REMOTE" ] && [ $remotes -gt 1 ]; then
+    print_normal "Repository has $remotes remotes, define which one to use with --remote"
+    git remote -v | grep "(push)$" | expand | awk '{ print " ", $0}'
+    exit 1
+fi
+
+if [ -n "$OPT_REMOTE" ]; then
+    found=0
+    for r in $(git remote); do
+        if [ "$r" == "$OPT_REMOTE" ]; then
+            found=1
+            break
+        fi
+    done
+    if [ $found -eq 0 ]; then
+        print_normal "Remote %rc$OPT_REMOTE%gc not defined in repository."
+        exit 1
+    fi
+fi
+
+if [ -z "$OPT_REMOTE" ]; then
+    OPT_REMOTE="$(git remote)"
+fi
+
+branch="$(git branch --show-current)"
+
+if [ -z "$branch" ]; then
+    print_error "Repository is in detached state."
+    exit 1
+fi
+
+if [ -n "$OPT_AVOID_BRANCHES" ]; then
+    for b in $OPT_AVOID_BRANCHES; do
+        if [ "$branch" == "$b" ]; then
+            print_error "Current branch $branch in branches to avoid, aborting."
+            exit 2
+        fi
+    done
+fi
+
+tmp_output="$(tempfile)"
+
+run_cmd git push $OPT_REMOTE $branch $OPT_FORCE 2>&1 | tee "$tmp_output"
+
+pr_url="$(cat "$tmp_output" | grep "^remote:" | awk '{ print $2 }' | grep -e "^https://")"
+
+if [ $OPT_OPEN -eq 1 ]; then
+    if [ -n "$pr_url" ] && [ $(echo "$pr_url" | wc -l) -gt 1 ]; then
+        print_normal "Multiple remote URLs."
+    elif [ -n "$pr_url" ]; then
+        print_normal "Opening pull request URL..."
+        xdg-open "$pr_url"
+    fi
+fi
+
+rm -f "$tmp_output"

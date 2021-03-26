@@ -1,0 +1,29 @@
+_create-pull-request()
+{
+    local cur opts
+    _init_completion -s || return
+
+    COMPREPLY=()
+    cur="${COMP_WORDS[COMP_CWORD]}"
+
+    opts="$(create-pull-request --autocomplete)"
+
+    case "${cur}" in
+        -*)
+            COMPREPLY=($(compgen -W "${opts}" -- ${cur}))
+            return 0
+            ;;
+        *)
+        ;;
+    esac
+
+    case "${prev}" in
+        -r|--remote)
+            COMPREPLY=($(compgen -W "$(git remote)" -- ${cur}))
+            return 0
+            ;;
+    esac
+
+    return 0
+}
+complete -F _create-pull-request create-pull-request
