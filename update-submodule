@@ -230,6 +230,7 @@ print_help() {
     echo ""
     echo "  -h, --help      This help."
     echo "  -v, --verbose   Print all commands and additional debugs."
+    echo "      --config    Save per-repository config."
     echo "  -r, --remote    What remote to use for updates (default $opt_remote)."
     echo "  -b, --branch    What branch to use for updates (default $opt_branch)."
     echo "  -s, --submodule Set explicit submodule name, useful if repository contains"
@@ -352,8 +353,11 @@ while [ $# -gt 0 ]; do
         --signoff)
             OPT_SIGNOFF="1"
             ;;
+        --config)
+            OPT_WRITE_CONFIG=1
+            ;;
         --autocomplete)
-            echo "-h --help -v --verbose --version -b --branch -r --remote -s --submodule -t --target --update-branch --subject --use-subject --scan --match --reverse --format --signoff"
+            echo "-h --help -v --verbose --version --config -b --branch -r --remote -s --submodule -t --target --update-branch --subject --use-subject --scan --match --reverse --format --signoff"
             exit 0
             ;;
         -*)
@@ -367,3 +371,18 @@ while [ $# -gt 0 ]; do
     esac
     shift
 done
+
+if [ $OPT_WRITE_CONFG -eq 1 ]; then
+    top_dir="$(git rev-parse --show-toplevel)"
+    if [ $? -ne 0 ]; then
+        exit 1
+    fi
+
+    echo "Saving repository specific config to %nc$PER_REPOSITORY_CONFIG"
+    cat > "$top_dir/$PRE_REPOSITORY_CONFIG" << EOF
+REMOTE=$opt_remote
+BRANCH=$opt_branch
+SUBJECT=$opt_subject
+SUBMODULE=$opt_submodule
+EOF
+fi
