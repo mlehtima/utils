@@ -20,7 +20,11 @@ print_debug() {
 }
 
 print_normal() {
-    echo -e "${PRINT_GREEN}$@${PRINT_NC}" >&1
+    local line="$@"
+    line="${line//%nc/${PRINT_NC}}"
+    line="${line//%gc/${PRINT_GREEN}}"
+    line="${line//%rc/${PRINT_RED}}"
+    echo -e "${PRINT_GREEN}$line${PRINT_NC}" >&1
 }
 
 print_version() {
