@@ -1,3 +1,19 @@
+_my_complete_all()
+{
+    local f
+    local -a tokens
+
+    f=$(compgen -f -- "${cur}") &&
+    while read -r tmp; do
+        tokens+=("$tmp")
+    done <<< "$f"
+
+    if [ ${#tokens[@]} -gt 0 ]; then
+        compopt -o filenames 2>/dev/null
+        COMPREPLY=("${tokens[@]}")
+    fi
+}
+
 _tx()
 {
     local cur prev opts
@@ -7,7 +23,7 @@ _tx()
     cur="${COMP_WORDS[COMP_CWORD]}"
     prev="${COMP_WORDS[COMP_CWORD-1]}"
 
-    opts="--version -h --help -v --verbose -t --types --force -f"
+    opts="--version -h --help -v --verbose -t --types --force -f --compress -c"
 
     case "${cur}" in
         -*)
@@ -24,9 +40,23 @@ _tx()
             COMPREPLY=( $(compgen -W "${types}" -- ${cur}) )
             return 0
             ;;
+        -c|--compress)
+            _my_complete_all
+            return 0
+            ;;
         *)
         ;;
     esac
+
+    # In --compress mode complete files to be added to the archive
+    for i in ${COMP_WORDS[@]}; do
+        case "$i" in
+            -c|--compress)
+                _my_complete_all
+                return 0
+            ;;
+        esac
+    done
 
     _filedir "$(tx --autocomplete-types)"
 
