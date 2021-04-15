@@ -18,40 +18,43 @@ import re
 from optparse import OptionParser, SUPPRESS_HELP
 from subprocess import DEVNULL
 
-VERSION = 0.8
+VERSION = 0.9
+
+DEFAULT_COMPRESS_TYPE = "tar.gz"
 
 class Handler:
-	def __init__(self, name, binaries, desc, action, ext):
+	def __init__(self, name, binaries, desc, compress, uncompress, ext):
 		self.name = name
 		self.binaries = binaries
 		self.desc = desc
-		self.action = action
+		self.compress = compress
+		self.uncompress = uncompress
 		self.ext = []
 		for e in ext:
 			self.ext.append(re.compile(e))
 
 ftypes = [
-	Handler('tar',      ['tar'],              'Tar archive.',                                     'tar -x -f "%s"',           [r'\.tar$']),
-	Handler('tar.gz',   ['tar', 'gunzip'],    'Tar archive compressed with gzip.',                'tar -x -z -f "%s"',        [r'\.tar\.gz$', r'\.tgz$']),
-	Handler('tar.bz2',  ['tar', 'bunzip2'],   'Tar archive compressed with bzip2.',               'tar -x -j -f "%s"',        [r'\.tar\.bz2$', r'\.tbz2$']),
-	Handler('tar.xz',   ['tar', 'unxz'],      'Tar archive compressed with xz.',                  'unxz -c "%s" | tar -x',    [r'\.tar\.xz$', r'\.txz$']),
-	Handler('tar.lz4',  ['tar', 'lz4'],       'Tar archive compressed with lz4.',                 'lz4 -d "%s" -c | tar -x',  [r'\.tar\.lz4$']),
-	Handler('gz',       ['gunzip'],           'File compressed with gzip.',                       'gunzip "%s"',              [r'\.gz$']),
-	Handler('bz2',      ['bunzip2'],          'File compressed with bzip2.',                      'bunzip2 "%s"',             [r'\.bz2$']),
-	Handler('xz',       ['unxz'],             'Xz archive.',                                      'unxz -k "%s"',             [r'\.xz$']),
-	Handler('lz4',      ['lz4'],              'LZ4 archive',                                      'lz4 -d "%s"',              [r'\.lz4$']),
-	Handler('zip',      ['unzip'],            'Zip archive.',                                     'unzip -q "%s"',            [r'\.zip$']),
-	Handler('rar',      ['unrar'],            'Rar archive.',                                     'unrar x "%s"',             [r'\.rar$']),
-	Handler('ace',      ['unace'],            'Ace archive.',                                     'unace x "%s"',             [r'\.ace$']),
-	Handler('arj',      ['arj'],              'Arj archive.',                                     'arj x -i "%s"',            [r'\.arj$']),
-	Handler('deb',      ['dpkg-deb'],         'Debian package.',                                  'dpkg-deb -x %s .',         [r'\.deb$']),
-	Handler('dsc',      ['dpkg-source'],      'Debian source package.',                           'dpkg-source -x "%s"',      [r'\.dsc$']),
-	Handler('rpm',      ['rpm2cpio', 'cpio'], 'Rpm package.',                                     'rpm2cpio %s | cpio -idm --quiet',  [r'\.rpm$']),
-	Handler('7z',       ['7z'],               '7zip package.',                                    '7z x "%s"',                [r'\.7z$']),
-	Handler('exe',      ['innoextract'],      'Inno Setup package (.exe).',                       'innoextract -s "%s"',      [r'\.exe$']),
-	Handler('rcore',    ['rich-core-extract'],'Rich core.',                                       'rich-core-extract "%s"',   [r'\.rcore$', r'\.rcore\.lzo$', r'\.rcore\.gz$']),
-	Handler('lzo',      ['lzop'],             'Lempel-Ziv-Oberhumer packer.',                     'lzop -d "%s"',             [r'\.lzo$']),
-	Handler('apk',      ['apktool'],          'Android application package.',                     'apktool decode "%s"',      [r'\.apk$']),
+	Handler('tar',      ['tar'],              'Tar archive.',                                     'tar cf "%s" %s',         'tar -x -f "%s"',           [r'\.tar$']),
+	Handler('tar.gz',   ['tar', 'gzip'],      'Tar archive compressed with gzip.',                'tar czf "%s" %s',        'tar -x -z -f "%s"',        [r'\.tar\.gz$', r'\.tgz$']),
+	Handler('tar.bz2',  ['tar', 'bzip2'],     'Tar archive compressed with bzip2.',               'tar cjf "%s" %s',        'tar -x -j -f "%s"',        [r'\.tar\.bz2$', r'\.tbz2$']),
+	Handler('tar.xz',   ['tar', 'xz'],        'Tar archive compressed with xz.',                  'tar cJf "%s" %s',        'xz -d -c "%s" | tar -x',   [r'\.tar\.xz$', r'\.txz$']),
+	Handler('tar.lz4',  ['tar', 'lz4'],       'Tar archive compressed with lz4.',                 None,                     'lz4 -d "%s" -c | tar -x',  [r'\.tar\.lz4$']),
+	Handler('gz',       ['gzip'],             'File compressed with gzip.',                       'gzip -c > "%s" < %s',    'gzip -d -k "%s"',          [r'\.gz$']),
+	Handler('bz2',      ['bzip2'],            'File compressed with bzip2.',                      'bzip2 -c > "%s" < %s',   'bzip2 -d -k "%s"',         [r'\.bz2$']),
+	Handler('xz',       ['xz'],               'Xz archive.',                                      'xz -c > "%s" < %s',      'xz -d -k "%s"',            [r'\.xz$']),
+	Handler('lz4',      ['lz4'],              'LZ4 archive',                                      'lz4 -c > "%s" < %s',     'lz4 -k -d "%s"',           [r'\.lz4$']),
+	Handler('zip',      ['unzip'],            'Zip archive.',                                     'zip -q "%s" %s',         'unzip -q "%s"',            [r'\.zip$']),
+	Handler('rar',      ['unrar'],            'Rar archive.',                                     None,                     'unrar x "%s"',             [r'\.rar$']),
+	Handler('ace',      ['unace'],            'Ace archive.',                                     None,                     'unace x "%s"',             [r'\.ace$']),
+	Handler('arj',      ['arj'],              'Arj archive.',                                     'arj a "%s" %s',          'arj x -i "%s"',            [r'\.arj$']),
+	Handler('deb',      ['dpkg-deb'],         'Debian package.',                                  None,                     'dpkg-deb -x %s .',         [r'\.deb$']),
+	Handler('dsc',      ['dpkg-source'],      'Debian source package.',                           None,                     'dpkg-source -x "%s"',      [r'\.dsc$']),
+	Handler('rpm',      ['rpm2cpio', 'cpio'], 'Rpm package.',                                     None,                     'rpm2cpio %s | cpio -idm --quiet',  [r'\.rpm$']),
+	Handler('7z',       ['7z'],               '7zip package.',                                    '7z a "%s" %s',           '7z x "%s"',                [r'\.7z$']),
+	Handler('exe',      ['innoextract'],      'Inno Setup package (.exe).',                       None,                     'innoextract -s "%s"',      [r'\.exe$']),
+	Handler('rcore',    ['rich-core-extract'],'Rich core.',                                       None,                     'rich-core-extract "%s"',   [r'\.rcore$', r'\.rcore\.lzo$', r'\.rcore\.gz$']),
+	Handler('lzo',      ['lzop'],             'Lempel-Ziv-Oberhumer packer.',                     None,                     'lzop -d "%s"',             [r'\.lzo$']),
+	Handler('apk',      ['apktool'],          'Android application package.',                     None,                     'apktool decode "%s"',      [r'\.apk$']),
 ]
 
 def vprint(v, s):
@@ -64,12 +67,17 @@ def iteritems(d):
 		items = d.items()
 	return items
 
-def files_exist(list):
-	ret = ""
-	for f in list:
-		if not os.path.exists(f) or not os.path.isfile(f):
-			ret += "%s " % f
-	return ret
+def files_exist(file_list, compress):
+	missing = []
+	for f in file_list:
+		if not compress and os.path.isfile(f):
+			continue
+		if compress and os.path.exists(f):
+			continue
+		missing.append(f)
+	if len(missing) > 0:
+		return ", ".join(missing)
+	return None
 
 def check_binary(exe):
 	return subprocess.call(["which", exe], stdout=DEVNULL, stderr=subprocess.STDOUT) == 0
@@ -82,9 +90,8 @@ def check_binaries(handler):
 			ret = False
 	return ret
 
-def extract(filename, force_type=None, verbose=False):
+def find_handler(filename, force_type=None):
 	handler = None
-	err = 0
 	if force_type:
 		filetype = force_type
 	else:
@@ -100,15 +107,41 @@ def extract(filename, force_type=None, verbose=False):
 			break
 	if not handler:
 		print("No handler for '%s'" % filename)
-		err = 200
 	else:
 		if not check_binaries(handler):
-			err = 201
-		else:
-			cmd = handler.action % filename
-			vprint(verbose, cmd)
-			err = os.system(cmd)
+			handler = None
+	return handler
 
+def extract(filename, force_type, verbose):
+	handler = find_handler(filename, force_type)
+	err = 1
+	if handler:
+		cmd = handler.uncompress % filename
+		vprint(verbose, cmd)
+		err = os.system(cmd)
+	return err
+
+def compress(archive, filenames, verbose):
+	err = 1
+
+	if len(filenames) == 0:
+		if os.path.exists(archive):
+			filenames = [ os.path.normpath(archive) ]
+			archive = str.format("{}.{}", os.path.normpath(archive), DEFAULT_COMPRESS_TYPE)
+		else:
+			print("No files listed for archive.")
+			return err
+
+	handler = find_handler(archive)
+	if handler and not handler.compress:
+		print("Compression not supported with %s." % handler.name)
+		return err
+	if handler:
+		escaped = list(map(lambda s: str.format("\"{}\"", os.path.normpath(s)), filenames))
+		file_list = " ".join(escaped)
+		cmd = handler.compress % (archive, file_list)
+		vprint(verbose, cmd)
+		err = os.system(cmd)
 	return err
 
 def print_extensions():
@@ -140,7 +173,7 @@ def main():
 	parser = OptionParser(usage="""\
 usage: %prog [options] files...
 
-Unpack multiple compressed file types with single
+(Un)pack multiple compressed file types with single
 program.
 """, version="%%prog %g" % VERSION)
 
@@ -159,6 +192,14 @@ program.
 		type='string',
 		dest='type',
 		help="""force archive type""")
+	parser.add_option('-c', '--compress',
+		action='store',
+		type='string',
+		dest='archive',
+		default=None,
+		help="""compress files to archive, if only target is specified and a file or
+directory by that name exists an archive is created consisting solely
+of this file or directory""")
 	parser.add_option('', '--autocomplete-types',
 		action='store_true',
 		dest='list_autocomplete_types',
@@ -174,25 +215,29 @@ program.
 		print_autocomplete()
 		sys.exit(0)
 
-	if len(args) == 0:
+	if len(args) == 0 and not opts.archive:
 		parser.print_help()
 		sys.exit(199)
 
-	missing = files_exist(args)
+	missing = files_exist(args, opts.archive)
 	if missing:
-		print("%s not found." % missing)
+		print("file(s) not found: %s" % missing)
 		sys.exit(200)
 
 	force = None
 	if opts.type:
 		force = ".%s" % opts.type
 
-	for i in args:
-		val = extract(i, force_type=force, verbose=opts.verbose)
-		if val != 0:
-			sys.exit(val)
+	ret = 0
+	if opts.archive:
+		ret = compress(opts.archive, args, verbose=opts.verbose)
+	else:
+		for i in args:
+			ret = extract(i, force_type=force, verbose=opts.verbose)
+			if ret != 0:
+				sys.exit(val)
 
-	sys.exit(0)
+	sys.exit(ret)
 
 if __name__ == "__main__":
 	main()
