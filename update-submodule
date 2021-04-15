@@ -12,6 +12,7 @@ OPT_SCAN_FULL="%s%n%b"
 OPT_SCAN_SUBJECT="%s"
 OPT_SCAN_REGEX_TAG="^\[.*\].*"
 OPT_SCAN_REGEX_ALL=".*"
+OPT_WRITE_CONFIG=0
 GLOBAL_CONFIG="$HOME/.config/update-submodule.conf"
 PER_REPOSITORY_CONFIG=".git/update-submodule.conf"
 
@@ -372,7 +373,7 @@ while [ $# -gt 0 ]; do
     shift
 done
 
-if [ $OPT_WRITE_CONFG -eq 1 ]; then
+if [ $OPT_WRITE_CONFIG -eq 1 ]; then
     top_dir="$(git rev-parse --show-toplevel)"
     if [ $? -ne 0 ]; then
         exit 1
