@@ -18,7 +18,7 @@ import re
 from optparse import OptionParser, SUPPRESS_HELP
 from subprocess import DEVNULL
 
-VERSION = 0.9
+VERSION = "0.9.1"
 
 DEFAULT_COMPRESS_TYPE = "tar.gz"
 
@@ -175,7 +175,7 @@ usage: %prog [options] files...
 
 (Un)pack multiple compressed file types with single
 program.
-""", version="%%prog %g" % VERSION)
+""", version="%%prog %s" % VERSION)
 
 	parser.add_option('-v', '--verbose',
 		action='store_true',
@@ -235,7 +235,7 @@ of this file or directory""")
 		for i in args:
 			ret = extract(i, force_type=force, verbose=opts.verbose)
 			if ret != 0:
-				sys.exit(val)
+				sys.exit(ret)
 
 	sys.exit(ret)
 
