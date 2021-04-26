@@ -18,6 +18,10 @@ if [ ! -d /parentroot ]; then
     exec $SFOS_SDK_ROOT/mer-sdk-chroot server-sdk
     exit 0
 else
+    if [ ! -f "/parentroot$session_bus_file" ]; then
+        echo "No session bus file found, are you running this inside SDK?"
+        exit 1
+    fi
     source "/parentroot$session_bus_file"
     export DBUS_SESSION_BUS_ADDRESS
     rm -f "/parentroot$session_bus_file"
