@@ -93,7 +93,7 @@ class WorkerPrinter():
                 if error:
                     self._errors.append((self._lines, line))
                 break
-        if ts:
+        if ts >= 0:
             line = "[{0:4d}s] {1}".format(ts, line)
         self._print(line)
 
@@ -194,7 +194,7 @@ class Task(threading.Thread):
         if self._state == Task.DONE:
             return int(self._duration)
         elif self._state == Task.CANCEL:
-            return 0
+            return -1
         else:
             return int(time.time() - self._start_time)
 
