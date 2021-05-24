@@ -330,8 +330,6 @@ class TaskManager():
         self._tasks_lock = threading.Lock()
         self._service = service
         self._printer = WorkerPrinter()
-        self._last_pwd = None
-        self._last_cmdline = None
         self._history_length = TASK_HISTORY_LENGTH
         signal.signal(signal.SIGINT, self._sigint_handler)
 
@@ -389,17 +387,32 @@ class TaskManager():
         self._append_task(task)
         self._tasks_lock.release()
 
-        self._last_pwd = pwd
-        self._last_cmdline = cmdline
-        self._last_background = background
         self._printer.debug("({0}) {1}task added".format(task.id(), "background " if task.background() else ""))
         self._service.TaskStateChanged(task.state(), task.id(), task.pwd(), task.cmdline(), task.time())
         return task.id()
 
-    def repeat_task(self):
-        if not self._last_cmdline:
+    def repeat_task(self, idno):
+        task = None
+        pwd = None
+        argv = None
+        background = False
+        self._tasks_lock.acquire()
+        if idno < 0:
+            task = self._tasks[-1]
+        else:
+            for t in self._tasks:
+                if t.id() == idno:
+                    task = t
+                    break
+        if task:
+            pwd = task.pwd()
+            argv = task.argv()
+            background = task.background()
+        self._tasks_lock.release()
+
+        if not pwd:
             return -1
-        return self.add_task(self._last_pwd, self._last_cmdline, self._last_background)
+        return self.add_task(pwd, argv, background)
 
     def cancel_task(self, idno):
         self._tasks_lock.acquire()
@@ -544,8 +557,8 @@ class Service(dbus.service.Object):
         return -1
 
     @dbus.service.method(SERVICE_NAME, in_signature='', out_signature='i')
-    def Repeat(self):
-        return self._manager.repeat_task()
+    def Repeat(self, idno):
+        return self._manager.repeat_task(idno)
 
     @dbus.service.method(SERVICE_NAME, in_signature='i', out_signature='')
     def CancelTask(self, idno):
