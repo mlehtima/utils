@@ -364,7 +364,11 @@ def sys_int_val(pos, default=None):
     return i
 
 def main():
-    cmd = ''.join(sys.argv[0].split("-")[-1:])
+    cmd = os.path.basename(sys.argv[0])
+    if cmd.find("-") > -1:
+        cmd = ''.join(cmd.split("-", 1)[-1:])
+    else:
+        cmd = ""
 
     if cmd == "quit":
         quit()
@@ -434,6 +438,10 @@ def main():
 
     elif sys_args1("--debug"):
         set_debug(sys_int_val(2, 1))
+
+    # Handle commands from symbolic links, like sdk-foobar
+    elif len(cmd) > 0:
+        run_cmd(os.getcwd(), [ cmd ] + sys.argv[1:])
 
     elif len(sys.argv) > 1:
         run_cmd(os.getcwd(), sys.argv[1:])
