@@ -383,7 +383,7 @@ if [ $OPT_WRITE_CONFIG -eq 1 ]; then
         exit 1
     fi
 
-    echo "Saving repository specific config to $PER_REPOSITORY_CONFIG"
+    print_normal "Saving repository specific config to %nc$PER_REPOSITORY_CONFIG"
     cat > "$top_dir/$PER_REPOSITORY_CONFIG" << EOF
 REMOTE="$opt_remote"
 BRANCH="$opt_branch"
