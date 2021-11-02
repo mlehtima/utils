@@ -339,6 +339,27 @@ def sb2_default_target():
         if ret:
             set_default_target(ret.decode().split("\n")[0])
 
+def parse_last_path():
+    tasks = sdk_method("Tasks")()
+    path = None
+    idno = 0
+    for idn, state, full_path, cmd, ret, duration in tasks:
+        if idn > idno:
+            idno = idn
+            path = full_path
+    if path:
+        print(path)
+    else:
+        sys.exit(1)
+
+def parse_running_id():
+    tasks = sdk_method("Tasks")()
+    for idn, state, full_path, cmd, ret, duration in tasks:
+        if state == STATE_RUNNING:
+            print(idn)
+            sys.exit(0)
+    sys.exit(1)
+
 def sys_args1(*argv):
     if len(sys.argv) > 1:
         for arg in argv:
