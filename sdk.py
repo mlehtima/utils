@@ -241,7 +241,17 @@ def cancel(idno):
         sdk_method("CancelTask")(idno)
 
 def repeat(idno):
-    sdk_method("Repeat")(idno)
+    repeat_idno = idno
+    if idno < 0:
+        tasks = sdk_method("Tasks")()
+        for idn, state, full_path, cmd, ret, duration in reversed(tasks):
+            if idno == 0:
+                repeat_idno = idn
+                break
+            idno += 1
+    elif idno == 0:
+        repeat_idno = -1
+    sdk_method("Repeat")(repeat_idno)
 
 def reset_task_ids():
     sdk_method("Reset")()
@@ -451,7 +461,7 @@ def main():
             run_target_cmd(os.getcwd(), cmd, sys.argv[1:])
 
     elif cmd == "repeat":
-        idno = sys_int_val(1, default=-1)
+        idno = sys_int_val(1, default=0)
         repeat(idno)
 
     elif cmd == "reset":
