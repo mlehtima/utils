@@ -457,6 +457,15 @@ def main():
     elif cmd == "reset":
         reset_task_ids()
 
+    elif cmd == "parse":
+        if sys_args1("--last-path"):
+            parse_last_path()
+        elif sys_args1("--running-id"):
+            parse_running_id()
+        else:
+            print("No option for parse given.")
+            sys.exit(1)
+
     elif sys_args1("--debug"):
         set_debug(sys_int_val(2, 1))
 
