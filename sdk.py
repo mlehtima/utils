@@ -439,6 +439,9 @@ def main():
     elif sys_args1("--debug"):
         set_debug(sys_int_val(2, 1))
 
+    elif cmd == "clear-pools":
+        run_cmd(os.getcwd(), [ "_sdk-clear-pools" ] + sys.argv[1:])
+
     # Run non-interactively
     elif cmd == "sdk-assistant":
         run_cmd(os.getcwd(), [ cmd ] + sys.argv[1:] + [ "-y" ])
