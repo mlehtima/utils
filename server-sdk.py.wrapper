@@ -1,5 +1,7 @@
 #!/bin/bash
 
+wrapper_path="$(dirname "`readlink -f $0`")"
+
 session_bus_file="/tmp/server-sdk.py.wrapper.u6j5hsfthftg4"
 
 if [ -z "$SFOS_SDK_ROOT" ]; then
@@ -28,5 +30,9 @@ else
     if [ ! -e "/run/user/$UID" ]; then
         sudo ln -s /parentroot/run/user/$UID /run/user/$UID
     fi
-    exec server-sdk.py
+    if [ -f "$wrapper_path/server-sdk.py" ]; then
+        exec "$wrapper_path/server-sdk.py"
+    else
+        exec server-sdk.py
+    fi
 fi
