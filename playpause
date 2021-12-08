@@ -2,7 +2,7 @@
 
 # Requires spotify control script (sp) and/or music-on-console player (mocp)
 
-SCRIPT_VERSION=1.2.0
+SCRIPT_VERSION=1.3.0
 
 LAST_PLAYING_FILE="/tmp/$USER-playpause-lastplaying.tmp"
 LAST_PLAYING=
@@ -186,7 +186,11 @@ case $1 in
                 _cmds=""
                 _next_play_state _cmds
                 _cmds="${_cmds}\nnext\nprevious\n"
-                _cmd=$(echo -e "${_cmds}>> ${_output} <<" | dmenu -l 4 -fn "Droid Sans Mono-20")
+                _dmenu_cmd="dmenu"
+                if [ -n "$DMENU_FONT" ]; then
+                    _dmenu_cmd="dmenu -fn \"$DMENU_FONT\""
+                fi
+                _cmd=$(echo -e "${_cmds}>> ${_output} <<" | $_dmenu_cmd -l 4)
                 case $_cmd in
                     play|pause) _play_pause ;;
                     previous)   _play_prev  ;;
