@@ -1,0 +1,31 @@
+#!/bin/bash
+
+if [ $# -lt 1 ]; then
+    echo "git-patchdiff <SHA-SINCE>"
+    exit 1
+fi
+
+SINCE="$1"
+
+for i in $(git log --oneline --since=$SINCE | cut -d' ' -f1); do
+    sha=$i
+    commit_name="$(git show --oneline $sha | head -n1 | cut -d' ' -f2-)"
+
+    echo "[looking for]: $commit_name"
+
+    for all in $(git log --oneline | grep "$commit_name" |cut -d' ' -f1); do
+        if [ "$all" == "$sha" ]; then
+            # skip itself
+            continue
+        fi
+        commit_name_prev="$(git show --oneline $all | head -n1 | cut -d' ' -f2-)"
+
+        if [ "$commit_name" == "$commit_name_prev" ]; then
+            echo "$sha and $all are a match."
+            diff -u <(git show $all) <(git show $sha)
+            echo "return to continue"
+            read retu
+            break
+        fi
+    done
+done
