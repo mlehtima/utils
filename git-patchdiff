@@ -7,6 +7,12 @@ fi
 
 SINCE="$1"
 
+DIFFCMD="diff -u"
+
+if which delta >/dev/null; then
+    DIFFCMD=delta
+fi
+
 for i in $(git log --oneline --since=$SINCE | cut -d' ' -f1); do
     sha=$i
     commit_name="$(git show --oneline $sha | head -n1 | cut -d' ' -f2-)"
@@ -22,7 +28,7 @@ for i in $(git log --oneline --since=$SINCE | cut -d' ' -f1); do
 
         if [ "$commit_name" == "$commit_name_prev" ]; then
             echo "$sha and $all are a match."
-            diff -u <(git show $all) <(git show $sha)
+            $DIFFCMD <(git show $all) <(git show $sha)
             echo "return to continue"
             read retu
             break
