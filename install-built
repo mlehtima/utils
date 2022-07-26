@@ -49,6 +49,7 @@ print_usage() {
     echo "  -p|--pattern            File to wait for with --watch, implies --watch if that is not"
     echo "                            defined."
     echo "                              current WATCH_PATTERN=\"$WATCH_PATTERN\""
+    echo "  -f|--force              Use --nodeps when installing."
     echo ""
     exit 0
 }
@@ -61,8 +62,13 @@ handle_options \
     "-i,--ignore,   1,  IGNORE_PACKAGES               " \
     "-w,--watch,    0,  WATCH_FOR_FILE                " \
     "-p,--pattern,  1,  WATCH_PATTERN                 " \
+    "-f,--force,    0,  USE_NODEPS                    " \
     ---                                                 \
     "$@"
+
+if [ "$USE_NODEPS" == "1" ]; then
+    install_opts="--nodeps"
+fi
 
 remote="$INSTALL_USER@$INSTALL_HOST"
 
