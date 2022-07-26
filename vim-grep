@@ -21,7 +21,7 @@ source "$SCRIPTPATH/common.sh" || exit 1
 
 SCRIPT_VERSION="1.3.0"
 expect_common_version 3
-check_config EDITOR=less FORCE_GREP=0
+check_config EDITOR=less FORCE_GREP=0 IGNORE_CASE=0
 need_binaries git grep sed
 
 print_usage() {
@@ -32,6 +32,7 @@ print_usage() {
     echo ""
     echo "  -h|--help               Print this help"
     echo "  -g|--grep               Use grep even when grepping from git tree"
+    echo "  -i|--ignore-case        Use case insensitive grepping"
     echo "  -e|--editor             Override default editor used to view results"
     echo "                            (default: $EDITOR)"
     echo ""
@@ -51,13 +52,14 @@ args_missing() {
 }
 
 handle_options \
-    "default:       handle_options_store_to = search  " \
-    "min-arguments: 1                                 " \
-    "missing:       args_missing                      " \
-    "-h,--help,     0,  print_usage                   " \
-    "-g,--grep,     0,  FORCE_GREP                    " \
-    "-e,--editor,   1,  EDITOR                        " \
-    ---                                                 \
+    "default:           handle_options_store_to = search  " \
+    "min-arguments:     1                                 " \
+    "missing:           args_missing                      " \
+    "-h,--help,         0,  print_usage                   " \
+    "-g,--grep,         0,  FORCE_GREP                    " \
+    "-e,--editor,       1,  EDITOR                        " \
+    "-i,--ignore-case,  0,  IGNORE_CASE                   " \
+    ---                                                     \
     "$@"
 
 # Check editor after handling options to take override into account
@@ -109,6 +111,10 @@ else
     grepcommand="grep -r -n"
     grepcommandpost="*"
     grepdirectories="."
+fi
+
+if [ $IGNORE_CASE -eq 1 ]; then
+    grepcommand="$grepcommand -i"
 fi
 
 common_tempfile output
@@ -197,7 +203,11 @@ case $EDITOR in
         ;&
     vim)
         if [ -z "$VIMRUNTIME" ]; then
-            $EDITOR "+/${search//\//\\/}" "$result"
+            search_case=""
+            if [ $IGNORE_CASE -eq 1 ]; then
+                search_case="\c"
+            fi
+            $EDITOR "+/${search_case}${search//\//\\/}" "$result"
             exit $?
         fi
         ;;
