@@ -5,6 +5,8 @@
 # Add to your .vimrc:
 #
 # au BufRead *.gitopenbuffer set filetype=gitopenbuffer
+# au BufRead *.gitopenbuffer hi openbuffer_left ctermfg=lightblue
+# au BufRead *.gitopenbuffer syn match openbuffer_left /\zs.*:[0-9]*: \ze/
 # autocmd FileType gitopenbuffer map <buffer> t ^<C-w>gF
 # autocmd FileType gitopenbuffer map <buffer> j <Down> ^
 # autocmd FileType gitopenbuffer map <buffer> k ^<Backspace><Backspace>^
@@ -164,7 +166,8 @@ grep_directory() {
         path_prefix="${last//\//\\/}${dir//\//\\/}\/"
     fi
 
-    $grepcommand -- "$search" $grepcommandpost | sed -e 's/\(.*:[0-9]\+\):/'"$path_prefix"'\1 :/' >> "$output"
+    $grepcommand -- "$search" $grepcommandpost | sed -e 's/\(.*:[0-9]\+\):/'"$path_prefix"'\1: /' >> "$output"
+
 
     if [[ $use_git -eq 1 && "$dir" != "." && -f .gitmodules ]]; then
         if [ -n "$last" ]; then
