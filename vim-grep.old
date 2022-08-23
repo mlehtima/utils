@@ -10,19 +10,32 @@
 # autocmd FileType gitopenbuffer map <buffer> k ^<Backspace><Backspace>^
 # autocmd FileType gitopenbuffer map <buffer> q :q!<CR>
 # autocmd FileType gitopenbuffer map <buffer> <ENTER> ^gF
+#
+# If using just git for grepping use following:
+#
 # command! -nargs=* -complete=shellcmd G tabnew | setlocal filetype=gitopenbuffer buftype=nofile bufhidden=hide noswapfile | r !vim-grep "<args>"
 # nnoremap <C-F> :G <C-R><C-W><CR>
 #
-# With this configuration it is possible to invoke vim-grep from inside vim with command :G
+# With silversearcher-ag you can use:
+#
+# command -nargs=* G :Ack! <args>
+# nnoremap <C-F> :Ack! <C-R><C-W><CR>
+#
+# With this configuration it is possible to invoke grepping from inside vim with command :G
 # or by over any text under cursor with keyboard Ctrl+F
 
 SCRIPTPATH="$(dirname "`readlink -f $0`")"
 source "$SCRIPTPATH/common.sh" || exit 1
 
-SCRIPT_VERSION="1.3.0"
+SCRIPT_VERSION="1.4.0"
 expect_common_version 3
-check_config EDITOR=less FORCE_GREP=0 IGNORE_CASE=0
-need_binaries git grep sed
+load_config
+check_config EDITOR=less FORCE_GREP=0 IGNORE_CASE=0 USE_AG=0
+if [ $USE_AG -eq 1 ]; then
+    need_binaries ag
+else
+    need_binaries git grep
+fi
 
 print_usage() {
     echo "$(basename $0) v$SCRIPT_VERSION"
@@ -95,7 +108,7 @@ git_submodules() {
 print_log ">> Grepping..."
 
 use_git=0
-if [ $FORCE_GREP -eq 0 ]; then
+if [ $USE_AG -eq 0 ] && [ $FORCE_GREP -eq 0 ]; then
     git branch > /dev/null 2>&1
     if [ $? -eq 0 ]; then
         use_git=1
@@ -107,6 +120,10 @@ if [ $use_git -eq 1 ]; then
     grepcommand="git grep -I -n"
     grepcommandpost=""
     grepdirectories=". $(git_submodules)"
+elif [ $USE_AG -eq 1 ]; then
+    grepcommand="ag"
+    grepcommandpost=""
+    grepdirectories="."
 else
     grepcommand="grep -r -n"
     grepcommandpost="*"
