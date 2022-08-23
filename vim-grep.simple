@@ -1,0 +1,9 @@
+#!/bin/bash
+
+# References
+# https://github.com/ggreer/the_silver_searcher
+# https://github.com/mileszs/ack.vim
+# https://stackoverflow.com/questions/4256697/vim-search-and-highlight-but-do-not-jump
+
+SEARCH_LINE="$@"
+vim -c ":Ack! '$SEARCH_LINE'" -c ":only" -c "let @/ = \"${SEARCH_LINE//\//\\/}\"" -c "set hlsearch" /dev/zero
