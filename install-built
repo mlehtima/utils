@@ -3,7 +3,7 @@
 SCRIPTPATH="$(dirname "`readlink -f $0`")"
 source "$SCRIPTPATH/common.sh" || exit 1
 
-expect_common_version 2
+expect_common_version 4
 need_binaries scp ssh rpm inotifywait
 load_config
 check_config \
@@ -20,6 +20,7 @@ to_copy=
 to_install=
 install_opts=
 wildcards=
+ssh_opt="-o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no"
 
 print_usage() {
     echo "$(basename $0) v$SCRIPT_VERSION"
@@ -132,6 +133,7 @@ for package in "$rpms_dir/"*.rpm; do
     skip=0
     for i in $IGNORE_PACKAGES; do
         if [[ "$fname" == *"${i}"* ]]; then
+            log_dbg "skip $fname (matches $i)"
             skip=1
             break
         fi
@@ -149,12 +151,18 @@ for package in "$rpms_dir/"*.rpm; do
             fi
         done
     else
+        log_dbg "consider $fname"
         to_copy="$to_copy $package"
         to_install="$to_install $fname"
     fi
 done
 
+if ! debug_enabled; then
+    ssh_opt="$ssh_opt -q"
+fi
+
 if [ -z "$wildcards" ]; then
+    log_dbg "check installed"
     echo -e -n "\rchecking installed packages...\r"
     check_installed="$to_copy"
     to_copy=
@@ -168,8 +176,16 @@ if [ -z "$wildcards" ]; then
         remote_cmd="$remote_cmd $p:$bn"
     done
     remote_cmd="$remote_cmd; do package=\${p%:*}; fn=\${p#*:}; rpm -qi \$package >/dev/null; if [ \$? -eq 0 ]; then echo \$fn; fi; done"
-    installed=$(echo "$remote_cmd" | ssh -q $remote "cat > $remote_tmp; sh $remote_tmp; rm -f $remote_tmp")
+    log_dbg "remote command: $remote_cmd"
+    installed=$(echo "$remote_cmd" | ssh $ssh_opt $remote "cat > $remote_tmp; sh $remote_tmp; rm -f $remote_tmp")
+    if [ $? -ne 0 ]; then
+        if ! debug_enabled; then
+            log_err "ssh failed, please rerun with DEBUG=1 to see error."
+        fi
+        exit 1
+    fi
     for package in $installed; do
+        log_dbg "to be installed: $package"
         to_install="$to_install $package"
         to_copy="$to_copy $base_path/$package"
     done
@@ -183,8 +199,8 @@ fi
 
 echo -e -n "\rcopying files to device...\r"
 # first copy...
-scp -q $to_copy $remote:/tmp
+scp $ssh_opt $to_copy $remote:/tmp
 
 echo -e -n "\rinstalling...             \r"
 # then install and delete...
-ssh -q $remote "cd /tmp && rpm -v -U $install_opts --force $to_install ; rm -f $to_install"
+ssh $ssh_opt $remote "cd /tmp && rpm -v -U $install_opts --force $to_install ; rm -f $to_install"
