@@ -15,7 +15,7 @@
 #
 
 # Increase this when functionality changes or new helper functions are added
-COMMON_VERSION=3
+COMMON_VERSION=4
 
 COMMON_CONFIG_LOCATION="$HOME/.config/$(basename $0).config"
 
@@ -490,4 +490,27 @@ common_tempfile() {
     fi
 
     printf -v "$_store_to" %s "$_fn"
+}
+
+# Use with
+# if debug_enabled; then
+#     foo
+# fi
+debug_enabled() {
+    if [ -n "$DEBUG" ]; then
+        return 0
+    fi
+    return 1
+}
+
+# Log line to stdout if DEBUG is defined
+log_dbg() {
+    if [ -n "$DEBUG" ]; then
+        echo "$(basename $0): $@"
+    fi
+}
+
+# Log line to stderr
+log_err() {
+    echo "$(basename $0): $@" >&2
 }
