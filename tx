@@ -18,43 +18,221 @@ import re
 from optparse import OptionParser, SUPPRESS_HELP
 from subprocess import DEVNULL
 
-VERSION = "0.9.2"
+VERSION = "1.0.0"
 
 DEFAULT_COMPRESS_TYPE = "tar.gz"
 
 class Handler:
-	def __init__(self, name, binaries, desc, compress, uncompress, ext):
+	def __init__(self, name, binaries, desc, compress, uncompress, verbose, quiet, ext):
 		self.name = name
 		self.binaries = binaries
 		self.desc = desc
 		self.compress = compress
 		self.uncompress = uncompress
+		self.verbose = verbose
+		self.quiet = quiet
 		self.ext = []
 		for e in ext:
 			self.ext.append(re.compile(e))
 
 ftypes = [
-	Handler('tar',      ['tar'],              'Tar archive.',                                     'tar cf "%s" %s',         'tar -x -f "%s"',           [r'\.tar$']),
-	Handler('tar.gz',   ['tar', 'gzip'],      'Tar archive compressed with gzip.',                'tar czf "%s" %s',        'tar -x -z -f "%s"',        [r'\.tar\.gz$', r'\.tgz$']),
-	Handler('tar.bz2',  ['tar', 'bzip2'],     'Tar archive compressed with bzip2.',               'tar cjf "%s" %s',        'tar -x -j -f "%s"',        [r'\.tar\.bz2$', r'\.tbz2$']),
-	Handler('tar.xz',   ['tar', 'xz'],        'Tar archive compressed with xz.',                  'tar cJf "%s" %s',        'xz -d -c "%s" | tar -x',   [r'\.tar\.xz$', r'\.txz$']),
-	Handler('tar.lz4',  ['tar', 'lz4'],       'Tar archive compressed with lz4.',                 None,                     'lz4 -d "%s" -c | tar -x',  [r'\.tar\.lz4$']),
-	Handler('gz',       ['gzip'],             'File compressed with gzip.',                       'gzip -c > "%s" < %s',    'gzip -d -k "%s"',          [r'\.gz$']),
-	Handler('bz2',      ['bzip2'],            'File compressed with bzip2.',                      'bzip2 -c > "%s" < %s',   'bzip2 -d -k "%s"',         [r'\.bz2$']),
-	Handler('xz',       ['xz'],               'Xz archive.',                                      'xz -c > "%s" < %s',      'xz -d -k "%s"',            [r'\.xz$']),
-	Handler('lz4',      ['lz4'],              'LZ4 archive',                                      'lz4 -c > "%s" < %s',     'lz4 -k -d "%s"',           [r'\.lz4$']),
-	Handler('zip',      ['unzip'],            'Zip archive.',                                     'zip -q "%s" %s',         'unzip -q "%s"',            [r'\.zip$']),
-	Handler('rar',      ['unrar'],            'Rar archive.',                                     None,                     'unrar x "%s"',             [r'\.rar$']),
-	Handler('ace',      ['unace'],            'Ace archive.',                                     None,                     'unace x "%s"',             [r'\.ace$']),
-	Handler('arj',      ['arj'],              'Arj archive.',                                     'arj a "%s" %s',          'arj x -i "%s"',            [r'\.arj$']),
-	Handler('deb',      ['dpkg-deb'],         'Debian package.',                                  None,                     'dpkg-deb -x %s .',         [r'\.deb$']),
-	Handler('dsc',      ['dpkg-source'],      'Debian source package.',                           None,                     'dpkg-source -x "%s"',      [r'\.dsc$']),
-	Handler('rpm',      ['rpm2cpio', 'cpio'], 'Rpm package.',                                     None,                     'rpm2cpio %s | cpio -idm --quiet',  [r'\.rpm$']),
-	Handler('7z',       ['7z'],               '7zip package.',                                    '7z a "%s" %s',           '7z x "%s"',                [r'\.7z$']),
-	Handler('exe',      ['innoextract'],      'Inno Setup package (.exe).',                       None,                     'innoextract -s "%s"',      [r'\.exe$']),
-	Handler('rcore',    ['rich-core-extract'],'Rich core.',                                       None,                     'rich-core-extract "%s"',   [r'\.rcore$', r'\.rcore\.lzo$', r'\.rcore\.gz$']),
-	Handler('lzo',      ['lzop'],             'Lempel-Ziv-Oberhumer packer.',                     None,                     'lzop -d "%s"',             [r'\.lzo$']),
-	Handler('apk',      ['apktool'],          'Android application package.',                     None,                     'apktool decode "%s"',      [r'\.apk$']),
+	Handler('tar',
+	        ['tar'],
+	        'Tar archive.',
+	        'tar %s -c -f "%s" %s',
+	        'tar %s -x -f "%s"',
+	        '-v',
+	        '',
+	        [r'\.tar$']),
+
+	Handler('tar.gz',
+	        ['tar', 'gzip'],
+	        'Tar archive compressed with gzip.',
+	        'tar %s -c -z -f "%s" %s',
+	        'tar %s -x -z -f "%s"',
+	        '-v',
+	        '',
+	        [r'\.tar\.gz$', '\.tgz$']),
+
+	Handler('tar.bz2',
+	        ['tar', 'bzip2'],
+	        'Tar archive compressed with bzip2.',
+	        'tar %s -c -j -f "%s" %s',
+	        'tar %s -x -j -f "%s"',
+	        '-v',
+	        '',
+	        [r'\.tar\.bz2$', r'\.tbz2$']),
+
+	Handler('tar.xz',
+	        ['tar', 'xz'],
+	        'Tar archive compressed with xz.',
+	        'tar cJf "%s" %s',
+	        'xz -d -c "%s" | tar -x',
+	        None,
+	        None,
+	        [r'\.tar\.xz$', r'\.txz$']),
+
+	Handler('tar.lz',
+	        ['tar', 'lunzip'],
+	        'Tar archive compressed with lzip.',
+	        None,
+	        'tar -x --lzip -f "%s"',
+	        None,
+	        None,
+	        [r'\.tar\.lz$']),
+
+	Handler('tar.lz4',
+	        ['tar', 'lz4'],
+	        'Tar archive compressed with lz4.',
+	        None,
+	        'lz4 -d "%s" -c | tar -x',
+	        None,
+	        None,
+	        [r'\.tar\.lz4$']),
+
+	Handler('gz',
+	        ['gzip'],
+	        'File compressed with gzip.',
+	        'gzip -c > "%s" < %s',
+	        'gzip -d -k "%s"',
+	        None,
+	        None,
+	        [r'\.gz$']),
+
+	Handler('bz2',
+	        ['bzip2'],
+	        'File compressed with bzip2.',
+	        'bzip2 -c > "%s" < %s',
+	        'bzip2 -d -k "%s"',
+	        None,
+	        None,
+	        [r'\.bz2$']),
+
+	Handler('xz',
+	        ['xz'],
+	        'Xz archive.',
+	        'xz -c > "%s" < %s',
+	        'xz -d -k "%s"',
+	        None,
+	        None,
+	        [r'\.xz$']),
+
+	Handler('lz4',
+	        ['lz4'],
+	        'LZ4 archive',
+	        'lz4 -c > "%s" < %s',
+	        'lz4 -k -d "%s"',
+	        None,
+	        None,
+	        [r'\.lz4$']),
+
+	Handler('zip',
+	        ['unzip'],
+	        'Zip archive.',
+	        'zip %s -r "%s" %s',
+	        'unzip %s "%s"',
+	        '',
+	        '-q',
+	        [r'\.zip$']),
+
+	Handler('rar',
+	        ['unrar'],
+	        'Rar archive.',
+	        None,
+	        'unrar x "%s"',
+	        None,
+	        None,
+	        [r'\.rar$']),
+
+	Handler('ace',
+	        ['unace'],
+	        'Ace archive.',
+	        None,
+	        'unace x "%s"',
+	        None,
+	        None,
+	        [r'\.ace$']),
+
+	Handler('arj',
+	        ['arj'],
+	        'Arj archive.',
+	        'arj a "%s" %s',
+	        'arj x -i "%s"',
+	        None,
+	        None,
+	        [r'\.arj$']),
+
+	Handler('deb',
+	        ['dpkg-deb'],
+	        'Debian package.',
+	        None,
+	        'dpkg-deb -x %s .',
+	        None,
+	        None,
+	        [r'\.deb$']),
+
+	Handler('dsc',
+	        ['dpkg-source'],
+	        'Debian source package.',
+	        None,
+	        'dpkg-source -x "%s"',
+	        None,
+	        None,
+	        [r'\.dsc$']),
+
+	Handler('rpm',
+	        ['rpm2cpio', 'cpio'],
+	        'Rpm package.',
+	        None,
+	        'rpm2cpio %s | cpio -idm --quiet',
+	        None,
+	        None,
+	        [r'\.rpm$']),
+
+	Handler('7z',
+	        ['7z'],
+	        '7zip package.',
+	        '7z a "%s" %s',
+	        '7z x "%s"',
+	        None,
+	        None,
+	        [r'\.7z$']),
+
+	Handler('exe',
+	        ['innoextract'],
+	        'Inno Setup package (.exe).',
+	        None,
+	        'innoextract -s "%s"',
+	        None,
+	        None,
+	        [r'\.exe$']),
+
+	Handler('rcore',
+	        ['rich-core-extract'],
+	        'Rich core.',
+	        None,
+	        'rich-core-extract "%s"',
+	        None,
+	        None,
+	        [r'\.rcore$', r'\.rcore\.lzo$', r'\.rcore\.gz$']),
+
+	Handler('lzo',
+	        ['lzop'],
+	        'Lempel-Ziv-Oberhumer packer.',
+	        None,
+	        'lzop -d "%s"',
+	        None,
+	        None,
+	        [r'\.lzo$']),
+
+	Handler('apk',
+	        ['apktool'],
+	        'Android application package.',
+	        None,
+	        'apktool decode "%s"',
+	        None,
+	        None,
+	        [r'\.apk$']),
 ]
 
 def vprint(v, s):
@@ -112,11 +290,25 @@ def find_handler(filename, force_type=None):
 			handler = None
 	return handler
 
+def find_verbose_switch(handler, verbose):
+	verbose_switch = None
+	if handler.verbose or handler.quiet:
+		verbose_switch = ""
+	if verbose and handler.verbose:
+		verbose_switch = handler.verbose
+	elif not verbose and handler.quiet:
+		verbose_switch = handler.quiet
+	return verbose_switch
+
 def extract(filename, force_type, verbose):
 	handler = find_handler(filename, force_type)
 	err = 1
 	if handler:
-		cmd = handler.uncompress % filename
+		verbose_switch = find_verbose_switch(handler, verbose)
+		if verbose_switch is not None:
+			cmd = handler.uncompress % (verbose_switch, filename)
+		else:
+			cmd = handler.uncompress % filename
 		vprint(verbose, cmd)
 		err = os.system(cmd)
 	return err
@@ -139,7 +331,11 @@ def compress(archive, filenames, verbose):
 	if handler:
 		escaped = list(map(lambda s: str.format("\"{}\"", os.path.normpath(s)), filenames))
 		file_list = " ".join(escaped)
-		cmd = handler.compress % (archive, file_list)
+		verbose_switch = find_verbose_switch(handler, verbose)
+		if verbose_switch is not None:
+			cmd = handler.compress % (verbose_switch, archive, file_list)
+		else:
+			cmd = handler.compress % (archive, file_list)
 		vprint(verbose, cmd)
 		err = os.system(cmd)
 	return err
