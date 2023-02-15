@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 import os
 import dbus
@@ -12,6 +12,7 @@ TASK_FAIL = 5
 
 MIN_DONE_DURATION = 10
 MIN_FAIL_DURATION = 0.5
+DIALOG_DURATION = 6000
 
 def state_changed_handler(new_state, task_id, task_pwd, task_cmd, duration):
     if new_state != TASK_DONE and new_state != TASK_FAIL:
@@ -28,7 +29,7 @@ def state_changed_handler(new_state, task_id, task_pwd, task_cmd, duration):
         if duration < MIN_FAIL_DURATION:
             return
 
-    os.system('notify-send -t 3000 -i %s "%s" "%s"' % (icon, header, task_cmd))
+    os.system('notify-send -a SDK -t %d -i %s "%s" "%s"' % (DIALOG_DURATION, icon, header, task_cmd))
 
 def main():
     dbus.mainloop.glib.DBusGMainLoop(set_as_default=True)
