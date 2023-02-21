@@ -1,0 +1,50 @@
+#!/bin/bash
+
+SCRIPTPATH="$(dirname "`readlink -f $0`")"
+source "$SCRIPTPATH/common.sh" || exit 1
+
+DMENU_CMD="dmenu"
+
+if [ -x "$HOME/.xmonad/dmenu_custom.sh" ]; then
+    DMENU_CMD="$HOME/.xmonad/dmenu_custom.sh"
+fi
+
+need_binaries awk nmcli $DMENU_CMD
+
+VPN_LIST=
+
+for NAME in $(nmcli --mode multiline connection | awk '{ if ($1 == "NAME:") name=$2; if ($1 == "TYPE:" && $2 == "vpn") print name }'); do
+
+    STATE="$(nmcli -f GENERAL.STATE connection show "$NAME" | awk '{ print $2 }')"
+    log_dbg "LIST: $NAME $STATE"
+    if [ -n "$STATE" ]; then
+        STATE=" [$STATE]"
+    fi
+    if [ -n "$VPN_LIST" ]; then
+        SEPARATOR="\n"
+    fi
+    VPN_LIST="$VPN_LIST$SEPARATOR$NAME$STATE"
+done
+
+if [ -z "$VPN_LIST" ]; then
+    log_err "No VPN connections defined."
+    exit 1
+fi
+
+SELECTED="$(echo -e "$VPN_LIST" | $DMENU_CMD)"
+
+if [ -z "$SELECTED" ]; then
+    exit 0
+fi
+
+VPN_OP=
+
+if [[ "$SELECTED" == *"[activated]"* ]]; then
+    VPN_OP="down"
+    SELECTED="${SELECTED% \[activated\]}"
+else
+    VPN_OP="up"
+fi
+
+log_dbg "nmcli $VPN_OP $SELECTED"
+nmcli connection $VPN_OP "$SELECTED"
