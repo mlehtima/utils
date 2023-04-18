@@ -1,0 +1,153 @@
+#!/bin/bash
+
+# Works with any editor but best with vim :)
+#
+# Add to your .vimrc:
+#
+# au BufRead *.gitopenbuffer set filetype=gitopenbuffer
+# au BufRead *.gitopenbuffer hi openbuffer_left ctermfg=lightblue
+# au BufRead *.gitopenbuffer syn match openbuffer_left /\zs.*:[0-9]*: \ze/
+# autocmd FileType gitopenbuffer map <buffer> t ^<C-w>gF
+# autocmd FileType gitopenbuffer map <buffer> j <Down> ^
+# autocmd FileType gitopenbuffer map <buffer> k ^<Backspace><Backspace>^
+# autocmd FileType gitopenbuffer map <buffer> q :q!<CR>
+# autocmd FileType gitopenbuffer map <buffer> <ENTER> ^gF
+# command! -nargs=* -complete=shellcmd F tabnew | setlocal filetype=gitopenbuffer buftype=nofile bufhidden=hide noswapfile | r !vimfind "<args>"
+
+SCRIPTPATH="$(dirname "`readlink -f $0`")"
+source "$SCRIPTPATH/common.sh" || exit 1
+
+SCRIPT_VERSION="1.0.0"
+expect_common_version 3
+load_config
+check_config EDITOR=less CASE_SENSITIVE=0 SEARCH_DIRECTORY="."
+need_binaries find
+
+print_usage() {
+    echo "$(basename $0) v$SCRIPT_VERSION"
+    echo ""
+    echo "  Configuration can be saved to config file to avoid using arguments,"
+    echo "  in $COMMON_CONFIG_LOCATION"
+    echo ""
+    echo "  -h|--help               Print this help"
+    echo "  -c|--case-sensitive     Use case sensitive searching"
+    echo "  -d|--directory          Directory to start search from"
+    echo "  -e|--editor             Override default editor used to view results"
+    echo "                            (default: $EDITOR)"
+    echo ""
+    exit 0
+}
+
+args_missing() {
+    case $1 in
+        EDITOR)
+            echo "fatal: value missing for editor"
+            exit 10     ;;
+        *)
+            echo "fatal: no pattern given. $1"
+            exit 1      ;;
+    esac
+}
+
+handle_options \
+    "default:               handle_options_store_to = search  " \
+    "min-arguments:         1                                 " \
+    "missing:               args_missing                      " \
+    "-h,--help,             0,  print_usage                   " \
+    "-e,--editor,           1,  EDITOR                        " \
+    "-d,--directory,        1,  SEARCH_DIRECTORY              " \
+    "-c,--case-sensitive,   0,  CASE_SENSITIVE                " \
+    ---                                                         \
+    "$@"
+
+# Check editor after handling options to take override into account
+need_binaries $EDITOR
+
+result=""
+
+print_log() {
+    # only print when outside vim
+    if [ -z "$VIMRUNTIME" ]; then
+        echo -e -n "${last_log//?/ }\r"
+        last_log="$@"
+        echo -e -n "$last_log\r"
+    fi
+}
+
+write_output() {
+    # write to file when outside vim
+    if [ -z "$VIMRUNTIME" ]; then
+        if [ -z "$result" ]; then
+            common_tempfile result grep.XXXXXX.gitopenbuffer
+        fi
+        echo "$@" >> "$result"
+    else
+        echo "$@"
+    fi
+}
+
+if [ $CASE_SENSITIVE -eq 1 ]; then
+    search_params="-name"
+else
+    search_params="-iname"
+fi
+
+print_log ">> Searching..."
+
+common_tempfile output
+
+finish() {
+    if [ -e "$output" ]; then
+        rm -f "$output"
+    fi
+    if [ -e "$result" ]; then
+        rm -f "$result"
+    fi
+}
+
+trap finish EXIT
+
+if [ ! -d "$SEARCH_DIRECTORY" ]; then
+    echo "$(basename $0): ’$SEARCH_DIRECTORY’ No such file or directory."
+    exit 1
+fi
+
+find $SEARCH_DIRECTORY -type f $search_params "$search" -and -not -path "*.git/*" -and -not -path "*.*.swp" >> "$output"
+
+hits=$(wc -l < "$output")
+if [ $hits -eq 0 ]; then
+    exit 0
+fi
+
+plural=""
+if [ $hits -gt 1 ]; then
+    plural="s"
+fi
+
+if [ -z "$VIMRUNTIME" ]; then
+    write_output "== ${hits} file${plural} found =="
+    write_output ""
+fi
+
+old_filename=""
+while IFS='' read -r line || [[ -n "$line" ]]; do
+    write_output "$line"
+done < "$output"
+
+print_log ""
+
+case $EDITOR in
+    gvim)
+        EDITOR="gvim -f"
+        ;&
+    vim)
+        if [ -z "$VIMRUNTIME" ]; then
+            $EDITOR +3 "$result"
+            exit $?
+        fi
+        ;;
+    *)
+        $EDITOR "$result"
+        exit $?
+        ;;
+esac

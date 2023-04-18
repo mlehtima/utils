@@ -1,0 +1,22 @@
+_vimfind()
+{
+    local cur opts
+    _init_completion -s || return
+
+    COMPREPLY=()
+    cur="${COMP_WORDS[COMP_CWORD]}"
+
+    opts="$(vimfind --autocomplete)"
+
+    case "${cur}" in
+        -*)
+            COMPREPLY=($(compgen -W "${opts}" -- ${cur}))
+            return 0
+            ;;
+        *)
+        ;;
+    esac
+
+    return 0
+}
+complete -F _vimfind vimfind
