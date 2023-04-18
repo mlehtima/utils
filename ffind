@@ -1,0 +1,10 @@
+#!/bin/bash
+
+if [ "$1" = "-p" ]; then
+    fzf | cat
+elif [ $# -gt 0 ]; then
+    echo "Invalid args '$@'"
+    exit 1
+else
+    exec fzf --bind 'enter:become(vim {})'
+fi
