@@ -5,8 +5,8 @@ source "$SCRIPTPATH/common.sh" || exit 1
 
 DMENU_CMD="dmenu"
 
-if [ -x "$HOME/.xmonad/dmenu_custom.sh" ]; then
-    DMENU_CMD="$HOME/.xmonad/dmenu_custom.sh"
+if [ -x "$HOME/.config/xmonad/dmenu_custom.sh" ]; then
+    DMENU_CMD="$HOME/.config/xmonad/dmenu_custom.sh"
 fi
 
 need_binaries awk nmcli $DMENU_CMD
@@ -31,7 +31,7 @@ if [ -z "$VPN_LIST" ]; then
     exit 1
 fi
 
-SELECTED="$(echo -e "$VPN_LIST" | $DMENU_CMD)"
+SELECTED="$(echo -e "$VPN_LIST" | $DMENU_CMD -i)"
 
 if [ -z "$SELECTED" ]; then
     exit 0
