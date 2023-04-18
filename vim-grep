@@ -119,7 +119,7 @@ fi
 
 if [ $use_git -eq 1 ]; then
     need_binaries awk
-    grepcommand="git grep -I -n"
+    grepcommand="git grep -I -n -E"
     grepcommandpost=""
     grepdirectories=". $(git_submodules)"
 elif [ $USE_AG -eq 1 ]; then
