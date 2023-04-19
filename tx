@@ -7,7 +7,7 @@ tx - unpack multiple compressed file types
 
 Public domain.
 
-Juho Hämäläinen 2008-2022  jusa@hilvi.org
+Juho Hämäläinen 2008-2023  jusa@hilvi.org
 
 """
 
@@ -18,7 +18,7 @@ import re
 from optparse import OptionParser, SUPPRESS_HELP
 from subprocess import DEVNULL
 
-VERSION = "1.0.0"
+VERSION = "1.1.0"
 
 DEFAULT_COMPRESS_TYPE = "tar.gz"
 
@@ -300,15 +300,25 @@ def find_verbose_switch(handler, verbose):
 		verbose_switch = handler.quiet
 	return verbose_switch
 
-def extract(filename, force_type, verbose):
+def extract(cwd, filename, force_type, verbose):
 	handler = find_handler(filename, force_type)
+	err = 1
+	if cwd:
+		err = os.system("[ -d '%s' ]" % cwd)
+		if err != 0:
+			print("No such directory or cannot enter ’%s’" % cwd)
+			return err
 	err = 1
 	if handler:
 		verbose_switch = find_verbose_switch(handler, verbose)
+		if not os.path.isabs(filename):
+			filename = "/".join([os.getcwd(), filename])
 		if verbose_switch is not None:
 			cmd = handler.uncompress % (verbose_switch, filename)
 		else:
 			cmd = handler.uncompress % filename
+		if cwd:
+			cmd = "cd '%s' && %s" % (cwd, cmd)
 		vprint(verbose, cmd)
 		err = os.system(cmd)
 	return err
@@ -396,6 +406,12 @@ program.
 		help="""compress files to archive, if only target is specified and a file or
 directory by that name exists an archive is created consisting solely
 of this file or directory""")
+	parser.add_option('-C', '--change-dir',
+		action='store',
+		type='string',
+		dest='change_dir',
+		default=None,
+		help="""change to directory before extracting""")
 	parser.add_option('', '--autocomplete-types',
 		action='store_true',
 		dest='list_autocomplete_types',
@@ -429,7 +445,7 @@ of this file or directory""")
 		ret = compress(opts.archive, args, verbose=opts.verbose)
 	else:
 		for i in args:
-			ret = extract(i, force_type=force, verbose=opts.verbose)
+			ret = extract(opts.change_dir, i, force_type=force, verbose=opts.verbose)
 			if ret != 0:
 				sys.exit(ret)
 
