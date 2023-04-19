@@ -1,10 +1,21 @@
 #!/bin/bash
 
+USE_AG=0
+
+if which ag >& /dev/null; then
+    USE_AG=1
+    export FZF_DEFAULT_COMMAND='ag -g ""'
+fi
+
 if [ "$1" = "-p" ]; then
     fzf | cat
 elif [ $# -gt 0 ]; then
     echo "Invalid args '$@'"
     exit 1
 else
+    if [ -f ".ignore" ] && [ $USE_AG -eq 1 ]; then
+        export FZF_DEFAULT_COMMAND='ag -U -g ""'
+    fi
+
     exec fzf --bind 'enter:become(vim {})'
 fi
